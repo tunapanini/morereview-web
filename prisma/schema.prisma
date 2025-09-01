@@ -1,6 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -10,104 +7,112 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// Note: RawCrawlData removed - Python scraping will directly populate Campaign table
-
-// Campaign information extracted from raw data
 model Campaign {
-  id                   Int           @id @default(autoincrement())
-  sourceSite          String        @map("source_site") @db.VarChar(255)
-  campaignId          String        @map("campaign_id") @db.VarChar(255)
-  title               String        @db.Text
-  description         String?       @db.Text
-  thumbnailImage      String?       @map("thumbnail_image") @db.Text
-  detailUrl           String?       @map("detail_url") @db.Text
-  remainingDays       Int?          @map("remaining_days")
-  applicationsCurrent Int           @default(0) @map("applications_current")
-  applicationsTotal   Int           @default(0) @map("applications_total")
-  rewardPoints        Int           @default(0) @map("reward_points")
-  category            String?       @db.VarChar(255)
-  locationType        String?       @map("location_type") @db.VarChar(255)
-  channels            String[]      @default([])
-
-  deadline            DateTime?     @db.Timestamptz(6)
-  extractedAt         DateTime      @default(now()) @map("extracted_at") @db.Timestamptz(6)
-  createdAt           DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt           DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
-
-  // Relations removed - no longer needed with Python scraping
+  id                  Int             @id @default(autoincrement())
+  sourceSite          String          @map("source_site") @db.VarChar(255)
+  campaignId          String          @map("campaign_id") @db.VarChar(255)
+  title               String
+  description         String?
+  thumbnailImage      String?         @map("thumbnail_image")
+  detailUrl           String?         @map("detail_url")
+  remainingDays       Int?            @map("remaining_days")
+  applicationsCurrent Int?            @default(0) @map("applications_current")
+  applicationsTotal   Int?            @default(0) @map("applications_total")
+  rewardPoints        Int?            @default(0) @map("reward_points")
+  category            String?         @db.VarChar(255)
+  locationType        String?         @map("location_type") @db.VarChar(255)
+  channels            String[]        @default([])
+  raw_data_id         Int?
+  extractedAt         DateTime?       @default(now()) @map("extracted_at") @db.Timestamptz(6)
+  createdAt           DateTime?       @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime?       @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  is_hidden           Boolean?        @default(false)
+  is_invalid          Boolean?        @default(false)
+  deadline            DateTime?       @db.Timestamptz(6)
+  raw_crawl_data      raw_crawl_data? @relation(fields: [raw_data_id], references: [id], onUpdate: NoAction)
 
   @@unique([sourceSite, campaignId])
-  @@index([sourceSite])
-  @@index([createdAt(sort: Desc)])
-  @@index([category])
-  @@index([remainingDays])
+  @@index([category], map: "idx_campaigns_category")
+  @@index([createdAt(sort: Desc)], map: "idx_campaigns_created_at")
+  @@index([is_hidden, is_invalid], map: "idx_campaigns_data_quality")
+  @@index([deadline], map: "idx_campaigns_deadline")
+  @@index([remainingDays], map: "idx_campaigns_remaining_days")
+  @@index([sourceSite], map: "idx_campaigns_source_site")
   @@map("campaigns")
 }
 
-// Data extraction logic versioning
 model ExtractorVersion {
-  id              Int      @id @default(autoincrement())
-  version         String   @unique @db.VarChar(50)
-  description     String?  @db.Text
-  extractionLogic Json     @map("extraction_logic")
-  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  isActive        Boolean  @default(false) @map("is_active")
+  id              Int       @id @default(autoincrement())
+  version         String    @unique @db.VarChar(50)
+  description     String?
+  extractionLogic Json      @map("extraction_logic")
+  createdAt       DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
+  isActive        Boolean?  @default(false) @map("is_active")
 
   @@map("extractor_versions")
 }
 
-// Top-level regions (시/도)
 model Region {
-  id           Int         @id @default(autoincrement())
-  code         String      @unique @db.VarChar(10)
-  name         String      @db.VarChar(50)
-  officialCode String?     @map("official_code") @db.VarChar(10)
-  level        Int         @default(1)
-  createdAt    DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt    DateTime    @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  id                                           Int         @id @default(autoincrement())
+  code                                         String      @unique @db.VarChar(10)
+  name                                         String      @db.VarChar(50)
+  officialCode                                 String?     @map("official_code") @db.VarChar(10)
+  level                                        Int         @default(1)
+  createdAt                                    DateTime?   @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                                    DateTime?   @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  sub_regions_sub_regions_parent_codeToregions SubRegion[] @relation("sub_regions_parent_codeToregions")
+  subRegions                                   SubRegion[]
 
-  // Relations
-  subRegions SubRegion[]
-
-  @@index([code])
-  @@index([name])
+  @@index([code], map: "idx_regions_code")
+  @@index([name], map: "idx_regions_name")
   @@map("regions")
 }
 
-// Sub-regions (시/군/구)
 model SubRegion {
-  id           Int      @id @default(autoincrement())
-  code         String   @unique @db.VarChar(10)
-  name         String   @db.VarChar(100)
-  parentCode   String   @map("parent_code") @db.VarChar(10)
-  officialCode String?  @map("official_code") @db.VarChar(10)
-  regionId     Int      @map("region_id")
-  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt    DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  id                                       Int       @id @default(autoincrement())
+  code                                     String    @unique @db.VarChar(10)
+  name                                     String    @db.VarChar(100)
+  parentCode                               String    @map("parent_code") @db.VarChar(10)
+  officialCode                             String?   @map("official_code") @db.VarChar(10)
+  regionId                                 Int       @map("region_id")
+  createdAt                                DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                                DateTime? @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  regions_sub_regions_parent_codeToregions Region    @relation("sub_regions_parent_codeToregions", fields: [parentCode], references: [code], onDelete: Cascade, onUpdate: NoAction, map: "fk_sub_regions_parent_code")
+  region                                   Region    @relation(fields: [regionId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_sub_regions_region_id")
 
-  // Relations
-  region Region @relation(fields: [regionId], references: [id], onDelete: Cascade)
-
-  @@index([code])
-  @@index([parentCode])
-  @@index([regionId])
-  @@index([name])
+  @@index([code], map: "idx_sub_regions_code")
+  @@index([name], map: "idx_sub_regions_name")
+  @@index([parentCode], map: "idx_sub_regions_parent_code")
+  @@index([regionId], map: "idx_sub_regions_region_id")
   @@map("sub_regions")
 }
 
-// Region synchronization logs
 model RegionSyncLog {
-  id               Int      @id @default(autoincrement())
-  lastSyncAt       DateTime @map("last_sync_at") @db.Timestamptz(6)
-  status           String   @db.VarChar(10)
-  errorMessage     String?  @map("error_message") @db.Text
-  totalRegions     Int      @default(0) @map("total_regions")
-  totalSubRegions  Int      @default(0) @map("total_sub_regions")
-  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  id              Int       @id @default(autoincrement())
+  lastSyncAt      DateTime  @map("last_sync_at") @db.Timestamptz(6)
+  status          String    @db.VarChar(10)
+  errorMessage    String?   @map("error_message")
+  totalRegions    Int       @default(0) @map("total_regions")
+  totalSubRegions Int       @default(0) @map("total_sub_regions")
+  createdAt       DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
 
-  @@index([lastSyncAt])
-  @@index([status])
+  @@index([lastSyncAt], map: "idx_region_sync_logs_last_sync_at")
+  @@index([status], map: "idx_region_sync_logs_status")
   @@map("region_sync_logs")
+}
+
+model raw_crawl_data {
+  id          Int        @id @default(autoincrement())
+  source_site String     @db.VarChar(255)
+  source_url  String
+  raw_html    String
+  metadata    Json?      @default("{}")
+  created_at  DateTime?  @default(now()) @db.Timestamptz(6)
+  updated_at  DateTime?  @default(now()) @db.Timestamptz(6)
+  campaigns   Campaign[]
+
+  @@index([created_at(sort: Desc)], map: "idx_raw_crawl_data_created_at")
+  @@index([source_site], map: "idx_raw_crawl_data_source_site")
 }
 
 // Email subscribers with preferences and subscription status

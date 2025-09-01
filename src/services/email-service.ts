@@ -186,7 +186,7 @@ export class EmailService {
             <ul style="margin: 0; padding-left: 20px;">
               <li>매일 엄선된 캠페인 추천</li>
               <li>카테고리별 맞춤 캠페인 정보</li>
-              <li>쿠팡 파트너스 할인 상품 소개</li>
+              <li>쿠팡 아이템 소개 및 비슷한 체험단 알림</li>
               <li>놓치기 쉬운 마감 임박 캠페인</li>
             </ul>
           </div>
