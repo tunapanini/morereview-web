@@ -10,7 +10,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const category = searchParams.get('category') || '제품';
     
-    console.log(`🚀 간단 크롤링 API 요청: category=${category}`);
+    console.warn(`🚀 간단 크롤링 API 요청: category=${category}`);
     
     const crawler = new SimpleCrawler();
     const result = await crawler.crawlReviewplace(category);

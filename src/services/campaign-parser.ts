@@ -40,7 +40,7 @@ export class CampaignParser {
       return campaigns;
     }
 
-    console.log(`📄 ${config.source} ${items.length}개 아이템 발견`);
+    console.warn(`📄 ${config.source} ${items.length}개 아이템 발견`);
 
     for (let i = 0; i < items.length; i++) {
       try {
@@ -96,7 +96,7 @@ export class CampaignParser {
           });
 
           if (i < 3) {
-            console.log(`✅ ${config.source} 캠페인 ${i + 1}: ${title.substring(0, 30)}..., 마감: ${deadline}, 보상: ${rewardInfo.reward}`);
+            console.warn(`✅ ${config.source} 캠페인 ${i + 1}: ${title.substring(0, 30)}..., 마감: ${deadline}, 보상: ${rewardInfo.reward}`);
           }
         }
 
@@ -168,7 +168,7 @@ export class CampaignParser {
     ];
 
     if (excludedUrlPatterns.some(pattern => url.includes(pattern))) {
-      console.log(`⏭️ 일반 페이지 URL 제외: ${url}`);
+      console.warn(`⏭️ 일반 페이지 URL 제외: ${url}`);
       return true;
     }
 
@@ -184,7 +184,7 @@ export class CampaignParser {
 
     for (const pattern of invalidTitlePatterns) {
       if (pattern.test(title) && !hasCampaignKeywords) {
-        console.log(`⏭️ 일반 페이지 제외: ${title} (캠페인 키워드 없음)`);
+        console.warn(`⏭️ 일반 페이지 제외: ${title} (캠페인 키워드 없음)`);
         return true;
       }
     }
