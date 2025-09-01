@@ -1,0 +1,96 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ========================================
+// 이메일 시스템 전용 테이블
+// 기존 캠페인/지역 테이블은 Supabase SDK 그대로 유지
+// ========================================
+
+model EmailSubscriber {
+  id                String   @id @default(cuid())
+  email             String   @unique
+  preferences       Json     @default("{}")
+  subscribedAt      DateTime @default(now())
+  unsubscribedAt    DateTime?
+  unsubscribeToken  String   @unique @default(cuid())
+  isActive          Boolean  @default(true)
+  
+  // 사용자 학습 데이터
+  userPreferences   UserPreference[]
+  emailEvents       EmailEvent[]
+  
+  @@map("email_subscribers")
+}
+
+model UserPreference {
+  id              String           @id @default(cuid())
+  subscriberId    String
+  preferenceType  String           // 'category', 'region', 'platform', 'price_range' 등
+  preferenceValue String
+  score           Float            @default(1.0)
+  learnedAt       DateTime         @default(now())
+  lastUpdated     DateTime         @updatedAt
+  
+  subscriber      EmailSubscriber  @relation(fields: [subscriberId], references: [id], onDelete: Cascade)
+  
+  @@map("user_preferences")
+  @@unique([subscriberId, preferenceType, preferenceValue])
+}
+
+model EmailEvent {
+  id              String           @id @default(cuid())
+  subscriberId    String
+  eventType       String           // 'sent', 'delivered', 'opened', 'clicked', 'unsubscribed'
+  messageId       String?
+  campaignId      String?
+  metadata        Json             @default("{}")
+  createdAt       DateTime         @default(now())
+  
+  subscriber      EmailSubscriber  @relation(fields: [subscriberId], references: [id], onDelete: Cascade)
+  
+  @@map("email_events")
+  @@index([subscriberId, eventType])
+  @@index([createdAt])
+}
+
+model EmailTemplate {
+  id          String   @id @default(cuid())
+  name        String
+  subject     String
+  htmlContent String
+  textContent String?
+  variables   Json     @default("{}")
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@map("email_templates")
+}
+
+model EmailCampaign {
+  id            String   @id @default(cuid())
+  name          String
+  templateId    String
+  scheduledAt   DateTime
+  sentAt        DateTime?
+  status        String   @default("draft") // 'draft', 'scheduled', 'sending', 'sent', 'cancelled'
+  recipientCount Int      @default(0)
+  metadata      Json     @default("{}")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  @@map("email_campaigns")
+}
