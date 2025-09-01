@@ -34,22 +34,45 @@ export class EmailService {
   /**
    * Subscribe a new user to email notifications
    */
-  async subscribe(request: SubscriptionRequest): Promise<{ success: boolean; subscriberId?: number; message: string }> {
+  async subscribe(request: SubscriptionRequest, ip?: string): Promise<{ success: boolean; subscriberId?: number; message: string }> {
     try {
+      // Rate limiting check
+      const rateLimitCheck = await this.checkSubscriptionRateLimit(request.email)
+      if (!rateLimitCheck.allowed) {
+        await this.logSubscriptionAttempt(request.email, ip, false, rateLimitCheck.reason)
+        return {
+          success: false,
+          message: rateLimitCheck.reason || '요청이 제한되었습니다.'
+        }
+      }
+
       // Check if email already exists
       const { data: existingUser } = await this.supabase
         .from('email_subscribers')
-        .select('id, is_active')
+        .select('id, is_active, created_at')
         .eq('email', request.email)
         .single()
 
       if (existingUser) {
         if (existingUser.is_active) {
+          await this.logSubscriptionAttempt(request.email, ip, false, '이미 구독 중')
           return {
             success: false,
             message: '이미 구독 중인 이메일 주소입니다.'
           }
         } else {
+          // Check if this is a recent resubscription (potential abuse)
+          const timeSinceLastSub = new Date().getTime() - new Date(existingUser.created_at).getTime()
+          const thirtyMinutes = 30 * 60 * 1000
+
+          if (timeSinceLastSub < thirtyMinutes) {
+            await this.logSubscriptionAttempt(request.email, ip, false, '너무 빠른 재구독')
+            return {
+              success: false,
+              message: '구독 해지 후 30분 뒤에 다시 구독할 수 있습니다.'
+            }
+          }
+
           // Reactivate existing subscription
           const { error } = await this.supabase
             .from('email_subscribers')
@@ -61,6 +84,14 @@ export class EmailService {
             .eq('id', existingUser.id)
 
           if (error) throw error
+
+          await this.logSubscriptionAttempt(request.email, ip, true, '재구독 성공')
+          
+          // Send welcome email for reactivation (but log it as reactivation)
+          await this.sendWelcomeEmail(request.email, {
+            firstName: request.firstName,
+            unsubscribeToken: '' // Will need to get actual token
+          })
 
           return {
             success: true,
@@ -110,11 +141,13 @@ export class EmailService {
         }
       }
 
-      // Send welcome email
+      // Send welcome email (only for new subscribers)
       await this.sendWelcomeEmail(request.email, {
         firstName: request.firstName,
         unsubscribeToken
       })
+
+      await this.logSubscriptionAttempt(request.email, ip, true, '신규 구독 성공')
 
       return {
         success: true,
@@ -124,6 +157,7 @@ export class EmailService {
 
     } catch (error) {
       console.error('Subscription error:', error)
+      await this.logSubscriptionAttempt(request.email, ip, false, `에러: ${error}`)
       return {
         success: false,
         message: '구독 처리 중 오류가 발생했습니다. 다시 시도해주세요.'
@@ -294,5 +328,214 @@ MoreReview 바로가기: https://morereview.co.kr
 
     if (error) return null
     return data
+  }
+
+  /**
+   * Get all active subscribers
+   */
+  async getAllActiveSubscribers() {
+    const { data, error } = await this.supabase
+      .from('email_subscribers')
+      .select('id, email, first_name, last_name, subscription_date, email_frequency')
+      .eq('is_active', true)
+      .order('subscription_date', { ascending: false })
+
+    if (error) {
+      console.error('Failed to get all subscribers:', error)
+      return []
+    }
+
+    return data || []
+  }
+
+  /**
+   * Delete subscriber by email (permanent delete from database)
+   */
+  async deleteSubscriber(email: string): Promise<{ success: boolean; message: string }> {
+    try {
+      const { data, error } = await this.supabase
+        .from('email_subscribers')
+        .delete()
+        .eq('email', email)
+        .select('email')
+        .single()
+
+      if (error || !data) {
+        return {
+          success: false,
+          message: '해당 이메일의 구독자를 찾을 수 없습니다.'
+        }
+      }
+
+      return {
+        success: true,
+        message: `${email} 구독자가 삭제되었습니다.`
+      }
+    } catch (error) {
+      console.error('Delete subscriber error:', error)
+      return {
+        success: false,
+        message: '구독자 삭제 중 오류가 발생했습니다.'
+      }
+    }
+  }
+
+  /**
+   * Delete multiple subscribers by emails
+   */
+  async deleteMultipleSubscribers(emails: string[]): Promise<{ success: boolean; message: string; deletedCount: number }> {
+    try {
+      const { data, error } = await this.supabase
+        .from('email_subscribers')
+        .delete()
+        .in('email', emails)
+        .select('email')
+
+      if (error) {
+        throw error
+      }
+
+      const deletedCount = data ? data.length : 0
+
+      return {
+        success: true,
+        message: `${deletedCount}명의 구독자가 삭제되었습니다.`,
+        deletedCount
+      }
+    } catch (error) {
+      console.error('Delete multiple subscribers error:', error)
+      return {
+        success: false,
+        message: '구독자 삭제 중 오류가 발생했습니다.',
+        deletedCount: 0
+      }
+    }
+  }
+
+  /**
+   * Update subscriber information
+   */
+  async updateSubscriber(email: string, updates: {
+    firstName?: string;
+    lastName?: string;
+    emailFrequency?: string;
+  }): Promise<{ success: boolean; message: string }> {
+    try {
+      const updateData: Record<string, string> = {}
+      
+      if (updates.firstName !== undefined) updateData.first_name = updates.firstName
+      if (updates.lastName !== undefined) updateData.last_name = updates.lastName  
+      if (updates.emailFrequency !== undefined) updateData.email_frequency = updates.emailFrequency
+      
+      const { data, error } = await this.supabase
+        .from('email_subscribers')
+        .update(updateData)
+        .eq('email', email)
+        .eq('is_active', true)
+        .select('email, first_name, last_name')
+        .single()
+
+      if (error || !data) {
+        return {
+          success: false,
+          message: '해당 구독자를 찾을 수 없거나 업데이트에 실패했습니다.'
+        }
+      }
+
+      return {
+        success: true,
+        message: `${email} 구독자 정보가 업데이트되었습니다.`
+      }
+    } catch (error) {
+      console.error('Update subscriber error:', error)
+      return {
+        success: false,
+        message: '구독자 정보 업데이트 중 오류가 발생했습니다.'
+      }
+    }
+  }
+
+  /**
+   * Check if email subscription should be rate limited
+   */
+  private async checkSubscriptionRateLimit(email: string): Promise<{ allowed: boolean; reason?: string }> {
+    try {
+      const now = new Date()
+      const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000)
+      const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000)
+
+      // Check recent subscription attempts for this email
+      const { data: recentByEmail, error: emailError } = await this.supabase
+        .from('email_subscribers')
+        .select('created_at')
+        .eq('email', email)
+        .gte('created_at', oneHourAgo.toISOString())
+
+      if (emailError) throw emailError
+
+      // Block if more than 3 attempts in 1 hour from same email
+      if (recentByEmail && recentByEmail.length >= 3) {
+        return { 
+          allowed: false, 
+          reason: '동일 이메일로 너무 많은 구독 시도가 있었습니다. 1시간 후 다시 시도해주세요.' 
+        }
+      }
+
+      // Check for suspicious patterns (same email subscribed/unsubscribed multiple times)
+      const { data: historyCount, error: historyError } = await this.supabase
+        .from('email_subscribers')
+        .select('*', { count: 'exact', head: true })
+        .eq('email', email)
+        .gte('created_at', oneDayAgo.toISOString())
+
+      if (historyError) throw historyError
+
+      // Block if more than 5 subscription records in 24 hours (suspicious)
+      if (historyCount && historyCount >= 5) {
+        return { 
+          allowed: false, 
+          reason: '의심스러운 활동이 감지되었습니다. 24시간 후 다시 시도해주세요.' 
+        }
+      }
+
+      return { allowed: true }
+
+    } catch (error) {
+      console.error('Rate limit check error:', error)
+      // Allow by default if check fails (fail-open for user experience)
+      return { allowed: true }
+    }
+  }
+
+  /**
+   * Log subscription attempt for monitoring
+   */
+  private async logSubscriptionAttempt(email: string, ip?: string, success: boolean, reason?: string) {
+    try {
+      // In a real implementation, you'd log this to a separate monitoring table
+      // or external service like DataDog, CloudWatch, etc.
+      console.warn('Subscription attempt:', {
+        email,
+        ip,
+        success,
+        reason,
+        timestamp: new Date().toISOString()
+      })
+      
+      // Could implement database logging here:
+      /*
+      await this.supabase
+        .from('subscription_logs')
+        .insert({
+          email,
+          ip_address: ip,
+          success,
+          reason,
+          created_at: new Date().toISOString()
+        })
+      */
+    } catch (error) {
+      console.error('Failed to log subscription attempt:', error)
+    }
   }
 }
