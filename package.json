@@ -1,0 +1,51 @@
+{
+  "name": "morereview",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --turbopack",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "lint:strict": "next lint --max-warnings 0",
+    "type-check": "tsc --noEmit",
+    "crawl": "curl http://localhost:3000/api/cron/crawl-campaigns",
+    "crawl:all": "curl http://localhost:3000/api/cron/crawl-campaigns?mode=all",
+    "crawl:reviewplace": "curl http://localhost:3000/api/cron/crawl-campaigns?mode=reviewplace",
+    "crawl:reviewnote": "curl http://localhost:3000/api/cron/crawl-campaigns?mode=reviewnote",
+    "crawl:revu": "curl http://localhost:3000/api/cron/crawl-campaigns?mode=revu",
+    "crawl:watch": "while true; do curl http://localhost:3000/api/cron/crawl-campaigns?mode=all; echo ''; sleep 600; done",
+    "migrate:check": "curl -s http://localhost:3000/api/migrate-remaining-days | jq '.statistics'",
+    "migrate:run": "curl -X POST http://localhost:3000/api/migrate-remaining-days",
+    "crawl:simple": "curl http://localhost:3000/api/simple-crawl",
+    "prepare": "husky"
+  },
+  "dependencies": {
+    "@sparticuz/chromium": "^132.0.0",
+    "@supabase/supabase-js": "^2.56.0",
+    "@vercel/analytics": "^1.5.0",
+    "@vercel/speed-insights": "^1.2.0",
+    "cheerio": "^1.1.2",
+    "next": "15.4.6",
+    "puppeteer-core": "^23.10.0",
+    "react": "19.1.0",
+    "react-dom": "19.1.0"
+  },
+  "devDependencies": {
+    "@eslint/eslintrc": "^3",
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "15.4.6",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.1.5",
+    "puppeteer": "^23.10.0",
+    "tailwindcss": "^4",
+    "typescript": "^5"
+  },
+  "lint-staged": {
+    "*.{js,jsx,ts,tsx}": "eslint --fix"
+  }
+}

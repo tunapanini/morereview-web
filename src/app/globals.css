@@ -1,0 +1,247 @@
+@import "tailwindcss";
+
+:root {
+  --background: #ffffff;
+  --foreground: #111827;
+}
+
+@theme inline {
+  /* Colors - Design System Palette - 연보라 파스텔톤 */
+  --color-primary-50: #fefcff;
+  --color-primary-100: #faf5ff;
+  --color-primary-200: #f3e8ff;
+  --color-primary-300: #f0e9ff;
+  --color-primary-400: #e9d5ff;
+  --color-primary-500: #d8b4fe;
+  --color-primary-600: #c084fc;
+  --color-primary-700: #a855f7;
+  --color-primary-800: #9333ea;
+  
+  --color-secondary-400: #f472b6;
+  --color-secondary-500: #ec4899;
+  --color-secondary-600: #db2777;
+  
+  --color-gray-100: #f3f4f6;
+  --color-gray-300: #d1d5db;
+  --color-gray-500: #6b7280;
+  --color-gray-700: #374151;
+  --color-gray-900: #111827;
+  
+  --color-success: #10b981;
+  --color-warning: #f59e0b;
+  --color-error: #ef4444;
+  
+  /* Background and Foreground */
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  
+  /* Typography */
+  --font-sans: var(--font-noto-sans-kr);
+  --font-mono: var(--font-geist-mono);
+  
+  /* Custom spacing for design consistency */
+  --spacing-card-gap: 1.5rem;
+  --spacing-section-gap: 2rem;
+  
+  /* Border radius scale */
+  --radius-sm: 0.25rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+  }
+}
+
+/* 브라우저별 폰트 최적화 */
+@supports (-webkit-font-smoothing: antialiased) {
+  body {
+    -webkit-font-smoothing: antialiased;
+    -webkit-text-stroke: 0.01em transparent;
+  }
+}
+
+@supports (-moz-osx-font-smoothing: grayscale) {
+  body {
+    -moz-osx-font-smoothing: grayscale;
+  }
+}
+
+/* macOS Safari에서 더 선명한 폰트를 위한 설정 */
+@media screen and (-webkit-min-device-pixel-ratio: 2) {
+  body {
+    -webkit-font-smoothing: subpixel-antialiased;
+    text-rendering: geometricPrecision;
+  }
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans), "Malgun Gothic", "Apple SD Gothic Neo", system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  font-smooth: always;
+}
+
+/* Typography Classes - Design System */
+.heading-xl {
+  font-size: 2.25rem;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.heading-lg {
+  font-size: 1.875rem;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.heading-md {
+  font-size: 1.5rem;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.heading-sm {
+  font-size: 1.25rem;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.body-lg {
+  font-size: 1.125rem;
+  font-weight: 400;
+  line-height: 1.6;
+}
+
+.body-md {
+  font-size: 1rem;
+  font-weight: 400;
+  line-height: 1.6;
+}
+
+.body-sm {
+  font-size: 0.875rem;
+  font-weight: 400;
+  line-height: 1.5;
+}
+
+.caption {
+  font-size: 0.75rem;
+  font-weight: 400;
+  line-height: 1.4;
+}
+
+/* Focus styles for accessibility */
+.focus-visible {
+  outline: 2px solid theme(colors.primary.500);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Font optimization utilities */
+.font-optimized {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  font-smooth: always;
+}
+
+.font-crisp {
+  -webkit-font-smoothing: subpixel-antialiased;
+  -moz-osx-font-smoothing: auto;
+  text-rendering: geometricPrecision;
+}
+
+/* Screen reader only content */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Line clamp utilities */
+.line-clamp-1 {
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.line-clamp-3 {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Interactive element utilities - Desktop only */
+@media (hover: hover) {
+  .clickable {
+    cursor: pointer;
+    transition: all 0.2s ease-in-out;
+  }
+
+  .clickable:hover {
+    transform: translateY(-1px);
+  }
+
+  .clickable:active {
+    transform: translateY(0px);
+  }
+
+  /* Hover effects - Desktop only */
+  .hover-lift {
+    transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+  }
+
+  .hover-lift:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  }
+
+  .hover-scale {
+    transition: transform 0.2s ease-in-out;
+  }
+
+  .hover-scale:hover {
+    transform: scale(1.02);
+  }
+}
+
+/* Button and link default styles */
+button {
+  cursor: pointer;
+}
+
+a[href] {
+  cursor: pointer;
+}
+
+/* Enhanced focus styles for better accessibility */
+button:focus-visible,
+a:focus-visible,
+[role="button"]:focus-visible {
+  outline: 2px solid theme(colors.primary.500);
+  outline-offset: 2px;
+  border-radius: 4px;
+}

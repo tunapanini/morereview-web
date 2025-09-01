@@ -1,0 +1,8 @@
+<svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Search glass outline -->
+  <circle cx="13" cy="13" r="8" stroke="#c084fc" stroke-width="3" fill="none"/>
+  <!-- Search handle -->
+  <path d="M19.5 19.5L26 26" stroke="#c084fc" stroke-width="3" stroke-linecap="round"/>
+  <!-- Heart inside magnifying glass -->
+  <path d="M13 17.6L17.2 12.36C17.7 11.86 17.7 10.86 17.2 10.36C16.7 9.86 15.7 9.86 15.2 10.36L13 12.6L10.8 10.36C10.3 9.86 9.3 9.86 8.8 10.36C8.3 10.86 8.3 11.86 8.8 12.36L13 17.6Z" fill="#EC4899"/>
+</svg>
