@@ -105,7 +105,7 @@ async function runErrorIntelligence(deploymentId: string) {
   const errorPattern = extractErrorPattern(buildLogs);
   
   // Phase 3: Sequential MCP로 체계적 분석
-  const analysis = await analyzeErrorWithSequential(errorPattern, buildLogs);
+  const analysis = await analyzeErrorWithSequential(errorPattern);
   
   // Phase 4: 해결책 생성
   const solution = await generateSolution(analysis);
@@ -290,7 +290,7 @@ async function notifyDeveloper(deployment: Record<string, unknown>, analysis: Re
         type: "section",
         text: {
           type: "mrkdwn",
-          text: `*배포 실패:* ${deployment.name}\n*에러 유형:* ${analysis.errorType}\n*예상 해결 시간:* ${analysis.estimatedFixTime}\n*신뢰도:* ${Math.round(analysis.confidence * 100)}%`
+          text: `*배포 실패:* ${deployment.name}\n*에러 유형:* ${analysis.errorType}\n*예상 해결 시간:* ${analysis.estimatedFixTime}\n*신뢰도:* ${Math.round((analysis.confidence as number) * 100)}%`
         }
       }
     ]
