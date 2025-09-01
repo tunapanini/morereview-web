@@ -344,7 +344,7 @@ export default function CampaignsPage() {
             캠페인 목록
           </h2>
           <span className="body-sm text-gray-500">
-            {displayedCampaigns.length}/{filteredCampaigns.length}개 표시
+            {isLoading ? '로딩 중...' : `${displayedCampaigns.length}/${filteredCampaigns.length}개 표시`}
           </span>
         </div>
 
