@@ -26,8 +26,23 @@ export interface EmailTemplate {
   text: string
 }
 
+export interface SubscriberData {
+  id: number
+  email: string
+  first_name: string | null
+  last_name: string | null
+  subscription_date: string
+  email_frequency: EmailFrequency
+}
+
+export interface ExistingUserData {
+  id: number
+  is_active: boolean
+  created_at: string
+}
+
 export class EmailService {
-  private supabase = createServerClient()
+  private supabase = createServerClient() as any
   private fromEmail = process.env.SENDGRID_FROM_EMAIL || 'noreply@morereview.co.kr'
   private emailSalt = process.env.EMAIL_SALT || 'default-salt'
 
@@ -39,7 +54,7 @@ export class EmailService {
       // Rate limiting check
       const rateLimitCheck = await this.checkSubscriptionRateLimit(request.email)
       if (!rateLimitCheck.allowed) {
-        await this.logSubscriptionAttempt(request.email, ip, false, rateLimitCheck.reason)
+        await this.logSubscriptionAttempt(request.email, false, ip, rateLimitCheck.reason)
         return {
           success: false,
           message: rateLimitCheck.reason || '요청이 제한되었습니다.'
@@ -53,20 +68,21 @@ export class EmailService {
         .eq('email', request.email)
         .single()
 
-      if (existingUser) {
-        if (existingUser.is_active) {
-          await this.logSubscriptionAttempt(request.email, ip, false, '이미 구독 중')
+      const user = existingUser as ExistingUserData | null
+      if (user) {
+        if (user.is_active) {
+          await this.logSubscriptionAttempt(request.email, false, ip, '이미 구독 중')
           return {
             success: false,
             message: '이미 구독 중인 이메일 주소입니다.'
           }
         } else {
           // Check if this is a recent resubscription (potential abuse)
-          const timeSinceLastSub = new Date().getTime() - new Date(existingUser.created_at).getTime()
+          const timeSinceLastSub = new Date().getTime() - new Date(user.created_at).getTime()
           const thirtyMinutes = 30 * 60 * 1000
 
           if (timeSinceLastSub < thirtyMinutes) {
-            await this.logSubscriptionAttempt(request.email, ip, false, '너무 빠른 재구독')
+            await this.logSubscriptionAttempt(request.email, false, ip, '너무 빠른 재구독')
             return {
               success: false,
               message: '구독 해지 후 30분 뒤에 다시 구독할 수 있습니다.'
@@ -80,12 +96,12 @@ export class EmailService {
               is_active: true,
               subscription_date: new Date().toISOString(),
               email_frequency: request.emailFrequency || 'DAILY'
-            })
-            .eq('id', existingUser.id)
+            } as any)
+            .eq('id', user.id)
 
           if (error) throw error
 
-          await this.logSubscriptionAttempt(request.email, ip, true, '재구독 성공')
+          await this.logSubscriptionAttempt(request.email, true, ip, '재구독 성공')
           
           // Send welcome email for reactivation (but log it as reactivation)
           await this.sendWelcomeEmail(request.email, {
@@ -115,7 +131,7 @@ export class EmailService {
           subscription_token: subscriptionToken,
           unsubscribe_token: unsubscribeToken,
           is_active: true
-        })
+        } as any)
         .select('id')
         .single()
 
@@ -133,7 +149,7 @@ export class EmailService {
 
         const { error: prefError } = await this.supabase
           .from('user_preferences')
-          .insert(preferencesData)
+          .insert(preferencesData as any)
 
         if (prefError) {
           console.error('Failed to save preferences:', prefError)
@@ -147,7 +163,7 @@ export class EmailService {
         unsubscribeToken
       })
 
-      await this.logSubscriptionAttempt(request.email, ip, true, '신규 구독 성공')
+      await this.logSubscriptionAttempt(request.email, true, ip, '신규 구독 성공')
 
       return {
         success: true,
@@ -157,7 +173,7 @@ export class EmailService {
 
     } catch (error) {
       console.error('Subscription error:', error)
-      await this.logSubscriptionAttempt(request.email, ip, false, `에러: ${error}`)
+      await this.logSubscriptionAttempt(request.email, false, ip, `에러: ${error}`)
       return {
         success: false,
         message: '구독 처리 중 오류가 발생했습니다. 다시 시도해주세요.'
@@ -172,7 +188,7 @@ export class EmailService {
     try {
       const { data: subscriber, error } = await this.supabase
         .from('email_subscribers')
-        .update({ is_active: false })
+        .update({ is_active: false } as any)
         .eq('unsubscribe_token', token)
         .eq('is_active', true)
         .select('email')
@@ -333,7 +349,7 @@ MoreReview 바로가기: https://morereview.co.kr
   /**
    * Get all active subscribers
    */
-  async getAllActiveSubscribers() {
+  async getAllActiveSubscribers(): Promise<SubscriberData[]> {
     const { data, error } = await this.supabase
       .from('email_subscribers')
       .select('id, email, first_name, last_name, subscription_date, email_frequency')
@@ -345,7 +361,7 @@ MoreReview 바로가기: https://morereview.co.kr
       return []
     }
 
-    return data || []
+    return (data as SubscriberData[]) || []
   }
 
   /**
@@ -429,7 +445,7 @@ MoreReview 바로가기: https://morereview.co.kr
       
       const { data, error } = await this.supabase
         .from('email_subscribers')
-        .update(updateData)
+        .update(updateData as any)
         .eq('email', email)
         .eq('is_active', true)
         .select('email, first_name, last_name')
@@ -510,7 +526,7 @@ MoreReview 바로가기: https://morereview.co.kr
   /**
    * Log subscription attempt for monitoring
    */
-  private async logSubscriptionAttempt(email: string, ip?: string, success: boolean, reason?: string) {
+  private async logSubscriptionAttempt(email: string, success: boolean, ip?: string, reason?: string) {
     try {
       // In a real implementation, you'd log this to a separate monitoring table
       // or external service like DataDog, CloudWatch, etc.
