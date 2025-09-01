@@ -7,11 +7,7 @@ import { createServerClient } from '@/lib/supabase/server'
 export type EmailFrequency = 'DAILY' | 'WEEKLY' | 'MONTHLY'
 export type PreferenceLevel = 'HIGH' | 'MEDIUM' | 'LOW'
 
-// SendGrid setup
-if (!process.env.SENDGRID_API_KEY) {
-  throw new Error('SENDGRID_API_KEY environment variable is required')
-}
-sgMail.setApiKey(process.env.SENDGRID_API_KEY)
+// SendGrid setup - will be initialized when needed
 
 export interface SubscriptionRequest {
   email: string
@@ -49,6 +45,17 @@ export class EmailService {
   private supabase = createServerClient() as any
   private fromEmail = process.env.SENDGRID_FROM_EMAIL || 'noreply@morereview.co.kr'
   private emailSalt = process.env.EMAIL_SALT || 'default-salt'
+  private sendGridInitialized = false
+
+  private initializeSendGrid() {
+    if (!this.sendGridInitialized) {
+      if (!process.env.SENDGRID_API_KEY) {
+        throw new Error('SENDGRID_API_KEY environment variable is required')
+      }
+      sgMail.setApiKey(process.env.SENDGRID_API_KEY)
+      this.sendGridInitialized = true
+    }
+  }
 
   /**
    * Subscribe a new user to email notifications
@@ -288,6 +295,8 @@ MoreReview 바로가기: https://morereview.co.kr
    */
   private async sendEmail(to: string, template: EmailTemplate) {
     try {
+      this.initializeSendGrid()
+      
       const msg = {
         to,
         from: this.fromEmail,
