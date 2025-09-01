@@ -1,7 +1,11 @@
 import sgMail from '@sendgrid/mail'
 import { createHash, randomBytes } from 'crypto'
 import { createServerClient } from '@/lib/supabase/server'
-import type { EmailFrequency, PreferenceLevel } from '@prisma/client'
+// import type { EmailFrequency, PreferenceLevel } from '@prisma/client'
+
+// Define types locally as fallback for Vercel deployment
+export type EmailFrequency = 'DAILY' | 'WEEKLY' | 'MONTHLY'
+export type PreferenceLevel = 'HIGH' | 'MEDIUM' | 'LOW'
 
 // SendGrid setup
 if (!process.env.SENDGRID_API_KEY) {
