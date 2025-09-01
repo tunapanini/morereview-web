@@ -1,12 +1,8 @@
 // This is your Prisma schema file,
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client-js"
-  output   = "../src/generated/prisma"
 }
 
 datasource db {
@@ -14,83 +10,222 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// ========================================
-// 이메일 시스템 전용 테이블
-// 기존 캠페인/지역 테이블은 Supabase SDK 그대로 유지
-// ========================================
+// Note: RawCrawlData removed - Python scraping will directly populate Campaign table
 
+// Campaign information extracted from raw data
+model Campaign {
+  id                   Int           @id @default(autoincrement())
+  sourceSite          String        @map("source_site") @db.VarChar(255)
+  campaignId          String        @map("campaign_id") @db.VarChar(255)
+  title               String        @db.Text
+  description         String?       @db.Text
+  thumbnailImage      String?       @map("thumbnail_image") @db.Text
+  detailUrl           String?       @map("detail_url") @db.Text
+  remainingDays       Int?          @map("remaining_days")
+  applicationsCurrent Int           @default(0) @map("applications_current")
+  applicationsTotal   Int           @default(0) @map("applications_total")
+  rewardPoints        Int           @default(0) @map("reward_points")
+  category            String?       @db.VarChar(255)
+  locationType        String?       @map("location_type") @db.VarChar(255)
+  channels            String[]      @default([])
+
+  deadline            DateTime?     @db.Timestamptz(6)
+  extractedAt         DateTime      @default(now()) @map("extracted_at") @db.Timestamptz(6)
+  createdAt           DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  // Relations removed - no longer needed with Python scraping
+
+  @@unique([sourceSite, campaignId])
+  @@index([sourceSite])
+  @@index([createdAt(sort: Desc)])
+  @@index([category])
+  @@index([remainingDays])
+  @@map("campaigns")
+}
+
+// Data extraction logic versioning
+model ExtractorVersion {
+  id              Int      @id @default(autoincrement())
+  version         String   @unique @db.VarChar(50)
+  description     String?  @db.Text
+  extractionLogic Json     @map("extraction_logic")
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  isActive        Boolean  @default(false) @map("is_active")
+
+  @@map("extractor_versions")
+}
+
+// Top-level regions (시/도)
+model Region {
+  id           Int         @id @default(autoincrement())
+  code         String      @unique @db.VarChar(10)
+  name         String      @db.VarChar(50)
+  officialCode String?     @map("official_code") @db.VarChar(10)
+  level        Int         @default(1)
+  createdAt    DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime    @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  // Relations
+  subRegions SubRegion[]
+
+  @@index([code])
+  @@index([name])
+  @@map("regions")
+}
+
+// Sub-regions (시/군/구)
+model SubRegion {
+  id           Int      @id @default(autoincrement())
+  code         String   @unique @db.VarChar(10)
+  name         String   @db.VarChar(100)
+  parentCode   String   @map("parent_code") @db.VarChar(10)
+  officialCode String?  @map("official_code") @db.VarChar(10)
+  regionId     Int      @map("region_id")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  // Relations
+  region Region @relation(fields: [regionId], references: [id], onDelete: Cascade)
+
+  @@index([code])
+  @@index([parentCode])
+  @@index([regionId])
+  @@index([name])
+  @@map("sub_regions")
+}
+
+// Region synchronization logs
+model RegionSyncLog {
+  id               Int      @id @default(autoincrement())
+  lastSyncAt       DateTime @map("last_sync_at") @db.Timestamptz(6)
+  status           String   @db.VarChar(10)
+  errorMessage     String?  @map("error_message") @db.Text
+  totalRegions     Int      @default(0) @map("total_regions")
+  totalSubRegions  Int      @default(0) @map("total_sub_regions")
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([lastSyncAt])
+  @@index([status])
+  @@map("region_sync_logs")
+}
+
+// Email subscribers with preferences and subscription status
 model EmailSubscriber {
-  id                String   @id @default(cuid())
-  email             String   @unique
-  preferences       Json     @default("{}")
-  subscribedAt      DateTime @default(now())
-  unsubscribedAt    DateTime?
-  unsubscribeToken  String   @unique @default(cuid())
-  isActive          Boolean  @default(true)
-  
-  // 사용자 학습 데이터
-  userPreferences   UserPreference[]
+  id                Int               @id @default(autoincrement())
+  email             String            @unique @db.VarChar(255)
+  firstName         String?           @map("first_name") @db.VarChar(100)
+  lastName          String?           @map("last_name") @db.VarChar(100)
+  isActive          Boolean           @default(true) @map("is_active")
+  subscriptionToken String            @unique @map("subscription_token") @db.VarChar(255)
+  unsubscribeToken  String            @unique @map("unsubscribe_token") @db.VarChar(255)
+  subscriptionDate  DateTime          @default(now()) @map("subscription_date") @db.Timestamptz(6)
+  lastEmailSentAt   DateTime?         @map("last_email_sent_at") @db.Timestamptz(6)
+  emailFrequency    EmailFrequency    @default(DAILY) @map("email_frequency")
+  timezone          String            @default("Asia/Seoul") @db.VarChar(50)
+  createdAt         DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime          @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  // Relations
+  preferences       UserPreference[]
   emailEvents       EmailEvent[]
-  
+  personalizationLogs PersonalizationLog[]
+
+  @@index([email])
+  @@index([isActive])
+  @@index([subscriptionDate])
   @@map("email_subscribers")
 }
 
+// User preferences for campaign categories and personalization
 model UserPreference {
-  id              String           @id @default(cuid())
-  subscriberId    String
-  preferenceType  String           // 'category', 'region', 'platform', 'price_range' 등
-  preferenceValue String
-  score           Float            @default(1.0)
-  learnedAt       DateTime         @default(now())
-  lastUpdated     DateTime         @updatedAt
-  
-  subscriber      EmailSubscriber  @relation(fields: [subscriberId], references: [id], onDelete: Cascade)
-  
+  id           Int               @id @default(autoincrement())
+  subscriberId Int               @map("subscriber_id")
+  category     String            @db.VarChar(255)
+  preference   PreferenceLevel   @default(NEUTRAL)
+  isExplicit   Boolean           @default(false) @map("is_explicit")  // User-set vs system-learned
+  confidence   Float             @default(0.5) @db.DoublePrecision
+  lastUpdated  DateTime          @default(now()) @map("last_updated") @db.Timestamptz(6)
+  createdAt    DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  // Relations
+  subscriber   EmailSubscriber @relation(fields: [subscriberId], references: [id], onDelete: Cascade)
+
+  @@unique([subscriberId, category])
+  @@index([subscriberId])
+  @@index([category])
+  @@index([preference])
   @@map("user_preferences")
-  @@unique([subscriberId, preferenceType, preferenceValue])
 }
 
+// Email events from SendGrid webhooks
 model EmailEvent {
-  id              String           @id @default(cuid())
-  subscriberId    String
-  eventType       String           // 'sent', 'delivered', 'opened', 'clicked', 'unsubscribed'
-  messageId       String?
-  campaignId      String?
-  metadata        Json             @default("{}")
-  createdAt       DateTime         @default(now())
-  
-  subscriber      EmailSubscriber  @relation(fields: [subscriberId], references: [id], onDelete: Cascade)
-  
+  id           Int               @id @default(autoincrement())
+  subscriberId Int               @map("subscriber_id")
+  messageId    String            @map("message_id") @db.VarChar(255)
+  eventType    EmailEventType    @map("event_type")
+  timestamp    DateTime          @db.Timestamptz(6)
+  email        String            @db.VarChar(255)
+  campaignId   String?           @map("campaign_id") @db.VarChar(255)
+  url          String?           @db.Text  // For clicks
+  reason       String?           @db.Text  // For bounces/drops
+  response     String?           @db.Text  // For errors
+  rawData      Json?             @map("raw_data")  // Full webhook payload
+  createdAt    DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  // Relations
+  subscriber   EmailSubscriber @relation(fields: [subscriberId], references: [id], onDelete: Cascade)
+
+  @@index([subscriberId])
+  @@index([eventType])
+  @@index([timestamp])
+  @@index([messageId])
   @@map("email_events")
-  @@index([subscriberId, eventType])
+}
+
+// Personalization algorithm logs and recommendations
+model PersonalizationLog {
+  id                  Int               @id @default(autoincrement())
+  subscriberId        Int               @map("subscriber_id")
+  algorithmVersion    String            @map("algorithm_version") @db.VarChar(50)
+  recommendedCampaigns Json             @map("recommended_campaigns")  // Array of campaign IDs with scores
+  personalizationScore Float            @map("personalization_score") @db.DoublePrecision
+  factors             Json              // Key factors that influenced the recommendation
+  executionTime       Int               @map("execution_time")  // Algorithm execution time in ms
+  createdAt           DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  // Relations
+  subscriber          EmailSubscriber @relation(fields: [subscriberId], references: [id], onDelete: Cascade)
+
+  @@index([subscriberId])
+  @@index([algorithmVersion])
   @@index([createdAt])
+  @@map("personalization_logs")
 }
 
-model EmailTemplate {
-  id          String   @id @default(cuid())
-  name        String
-  subject     String
-  htmlContent String
-  textContent String?
-  variables   Json     @default("{}")
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
-  @@map("email_templates")
+// Enums for email system
+enum EmailFrequency {
+  DAILY
+  WEEKLY
+  TWICE_WEEKLY
+  CUSTOM
 }
 
-model EmailCampaign {
-  id            String   @id @default(cuid())
-  name          String
-  templateId    String
-  scheduledAt   DateTime
-  sentAt        DateTime?
-  status        String   @default("draft") // 'draft', 'scheduled', 'sending', 'sent', 'cancelled'
-  recipientCount Int      @default(0)
-  metadata      Json     @default("{}")
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  
-  @@map("email_campaigns")
+enum PreferenceLevel {
+  DISLIKE      // -1
+  NEUTRAL      //  0
+  LIKE         //  1
+  LOVE         //  2
+}
+
+enum EmailEventType {
+  DELIVERED
+  OPENED
+  CLICKED
+  BOUNCED
+  DROPPED
+  SPAM_REPORTED
+  UNSUBSCRIBED
+  GROUP_UNSUBSCRIBED
+  GROUP_RESUBSCRIBED
 }
