@@ -456,44 +456,67 @@ export function convertRawDataToCampaigns(rawData: RawCampaignData[]): Campaign[
 // 실제 크롤링 데이터 로드 (Supabase API에서)
 export async function loadRealCampaignData(sortBy: CampaignSortBy = 'latest', sortOrder: CampaignSortOrder = 'desc'): Promise<Campaign[]> {
   try {
-    // API를 통해 캠페인 데이터 가져오기 (서버에서 정렬된 데이터)
-    const response = await fetch(`/api/campaigns?limit=1000&sortBy=${sortBy}&sortOrder=${sortOrder}`);
-    if (!response.ok) {
-      throw new Error('Failed to load campaign data from API');
+    // 🚀 성능 최적화: 스트리밍과 청크 처리로 메모리 효율성 개선
+    const batchSize = 200; // 배치 크기 제한으로 메모리 사용량 조절
+    let page = 1;
+    const allCampaigns: Campaign[] = [];
+    let hasMore = true;
+
+    while (hasMore && page <= 10) { // 최대 10페이지 (2000개)로 제한
+      const response = await fetch(
+        `/api/campaigns?page=${page}&limit=${batchSize}&sortBy=${sortBy}&sortOrder=${sortOrder}`,
+        {
+          // ⚡ 성능 최적화: 압축 활성화
+          headers: {
+            'Accept': 'application/json',
+            'Accept-Encoding': 'gzip, deflate, br'
+          }
+        }
+      );
+      
+      if (!response.ok) {
+        throw new Error(`Failed to load campaign data: ${response.status}`);
+      }
+
+      const result = await response.json();
+      const rawData: RawCampaignData[] = result.data || [];
+
+      if (!Array.isArray(rawData) || rawData.length === 0) {
+        hasMore = false;
+        break;
+      }
+
+      // 📊 배치 단위로 데이터 변환하여 메모리 효율성 향상
+      const batchCampaigns = convertRawDataToCampaigns(rawData);
+      const validBatchCampaigns = batchCampaigns.filter(campaign => {
+        return campaign?.id &&
+          campaign.title &&
+          campaign.createdDate &&
+          campaign.endDate &&
+          campaign.startDate &&
+          !isNaN(campaign.createdDate.getTime()) &&
+          !isNaN(campaign.endDate.getTime()) &&
+          !isNaN(campaign.startDate.getTime());
+      });
+
+      allCampaigns.push(...validBatchCampaigns);
+
+      // 🔄 페이지네이션 체크
+      hasMore = result.pagination.page < result.pagination.totalPages;
+      page++;
     }
 
-    const result = await response.json();
-    const rawData: RawCampaignData[] = result.data || [];
-
-    // 데이터 유효성 검사
-    if (!Array.isArray(rawData)) {
-      console.error('Invalid campaign data format');
-      return [];
+    // 🎯 중복 제거 최적화: Map 기반 중복 제거
+    const uniqueCampaigns = new Map<string, Campaign>();
+    for (const campaign of allCampaigns) {
+      if (!uniqueCampaigns.has(campaign.id)) {
+        uniqueCampaigns.set(campaign.id, campaign);
+      }
     }
-
-    const campaigns = convertRawDataToCampaigns(rawData);
-
-    // 변환된 캠페인 데이터 유효성 검사
-    const validCampaigns = campaigns.filter(campaign => {
-      return campaign.id &&
-        campaign.title &&
-        campaign.createdDate &&
-        campaign.endDate &&
-        campaign.startDate &&
-        !isNaN(campaign.createdDate.getTime()) &&
-        !isNaN(campaign.endDate.getTime()) &&
-        !isNaN(campaign.startDate.getTime());
-    });
-
-    // 중복 ID 제거 (마지막에 온 것을 유지)
-    const uniqueCampaigns = validCampaigns.reduce((acc, campaign) => {
-      acc.set(campaign.id, campaign);
-      return acc;
-    }, new Map<string, Campaign>());
 
     const finalCampaigns = Array.from(uniqueCampaigns.values());
 
-    logger.dev(`Loaded ${finalCampaigns.length} unique campaigns out of ${validCampaigns.length} valid campaigns`);
+    logger.dev(`⚡ 성능 최적화 완료: ${finalCampaigns.length} 캠페인 로드 (${page - 1} 배치 처리)`);
 
     return finalCampaigns;
   } catch (error) {

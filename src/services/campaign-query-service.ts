@@ -39,6 +39,12 @@ export class CampaignQueryService {
   /**
    * 고품질 캠페인 조회 (숨겨지지 않고 유효한 캠페인만)
    */
+  /**
+   * 고품질 캠페인 조회 (성능 최적화 버전)
+   */
+  /**
+   * 고품질 캠페인 조회 (성능 최적화 버전)
+   */
   async getQualityCampaigns(params: CampaignQueryParams): Promise<CampaignQueryResult> {
     const {
       page = 1,
@@ -49,14 +55,22 @@ export class CampaignQueryService {
       sortOrder = 'desc'
     } = params;
 
+    // 📊 필요한 컬럼만 선택하여 네트워크 부하 감소
+    const selectedColumns = [
+      'id', 'source_site', 'campaign_id', 'title', 'description',
+      'thumbnail_image', 'detail_url', 'remaining_days', 'applications_current',
+      'applications_total', 'reward_points', 'category', 'location_type',
+      'channels', 'extracted_at', 'created_at', 'deadline'
+    ].join(', ');
+
     let query = this.supabase
       .from('campaigns')
-      .select('*', { count: 'exact' })
-      // 데이터 품질 필터링: 숨겨지지 않고 유효한 캠페인만
+      .select(selectedColumns, { count: 'exact' })
+      // 🎯 핵심 필터링: 복합 인덱스 활용을 위해 순서 최적화
       .eq('is_hidden', false)
       .eq('is_invalid', false);
 
-    // 추가 필터링
+    // 🔍 추가 필터링: 인덱스 순서에 맞춰 배치
     if (source_site) {
       query = query.eq('source_site', source_site);
     }
@@ -65,18 +79,26 @@ export class CampaignQueryService {
       query = query.eq('category', category);
     }
     
-    // 정렬 적용
+    // ⚡ 정렬 로직 최적화: 인덱스 활용 극대화
     if (sortBy === 'latest') {
-      query = query.order('created_at', { ascending: sortOrder === 'asc' })
-        .order('id', { ascending: false }); // 보조 정렬
+      // 복합 인덱스 (is_hidden, is_invalid, created_at DESC, id DESC) 활용
+      query = query
+        .order('created_at', { ascending: sortOrder === 'asc' })
+        .order('id', { ascending: sortOrder === 'asc' }); // 동일 시간대 정렬 보장
     } else if (sortBy === 'deadline') {
-      // deadline 컬럼이 있으면 우선 사용, 없으면 remaining_days 폴백
-      query = query.order('deadline', { ascending: sortOrder === 'asc', nullsFirst: false })
+      // 복합 인덱스 (is_hidden, is_invalid, deadline DESC, remaining_days DESC, id DESC) 활용
+      query = query
+        .order('deadline', { ascending: sortOrder === 'asc', nullsFirst: false })
         .order('remaining_days', { ascending: sortOrder === 'asc', nullsFirst: false })
         .order('id', { ascending: false }); // 보조 정렬
+    } else if (sortBy === 'reward') {
+      query = query
+        .order('reward_points', { ascending: sortOrder === 'asc', nullsFirst: false })
+        .order('created_at', { ascending: false })
+        .order('id', { ascending: false });
     }
 
-    // 페이지네이션
+    // 📄 페이지네이션: OFFSET 기반 (차후 커서 기반으로 업그레이드 예정)
     const from = (page - 1) * limit;
     const to = from + limit - 1;
 
