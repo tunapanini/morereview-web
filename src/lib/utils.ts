@@ -256,18 +256,3 @@ export const logCoupangError = (component: string, error: string, details?: unkn
   }
 };
 
-/**
- * 쿠팡 도메인 연결 상태를 확인하는 함수
- */
-export const checkCoupangConnectivity = async (): Promise<boolean> => {
-  try {
-    await fetch('https://ads-partners.coupang.com/banners/911978?w=1&h=1', {
-      method: 'HEAD',
-      mode: 'no-cors',
-    });
-    return true;
-  } catch (error) {
-    logCoupangError('Connectivity Check', 'Failed to connect to Coupang', error);
-    return false;
-  }
-};
