@@ -14,11 +14,11 @@ export const platformColors: Record<CampaignPlatform, string> = {
 export function filterCampaigns(campaigns: Campaign[], filters: CampaignFilters): Campaign[] {
   let filtered = [...campaigns];
 
-  // 🚨 마감일 필터링 추가: 만료된 캠페인 자동 제외 (endDate가 null이면 활성 상태로 처리)
+  // 🚨 마감일 필터링 추가: 만료된 캠페인 자동 제외 (deadline이 null이면 활성 상태로 처리)
   const now = new Date();
   filtered = filtered.filter((campaign) => {
-    // endDate가 null이면 활성 상태로 처리, 있으면 현재 시간보다 이후인지 확인
-    return !campaign.endDate || campaign.endDate > now;
+    // deadline이 null이면 활성 상태로 처리, 있으면 현재 시간보다 이후인지 확인
+    return !campaign.deadline || campaign.deadline > now;
   });
 
   // Search query filter

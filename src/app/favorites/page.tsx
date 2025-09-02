@@ -56,7 +56,7 @@ export default function FavoritesPage() {
       if (filters.sortBy === 'latest') {
         return b.createdDate.getTime() - a.createdDate.getTime();
       } else {
-        return a.endDate.getTime() - b.endDate.getTime();
+        return (a.deadline?.getTime() ?? 0) - (b.deadline?.getTime() ?? 0);
       }
     });
   }, [favoriteCampaigns, filters]);

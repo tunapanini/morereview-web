@@ -132,10 +132,10 @@ export default function CompactTableView({
                       {/* Mobile: Show end date */}
                       <div className="sm:hidden mb-2">
                         <span className="text-xs font-medium text-gray-900">
-                          {formatDate(campaign.endDate)}
+                          {formatDate(campaign.deadline)}
                         </span>
                         <DeadlineBadge 
-                          endDate={campaign.endDate} 
+                          endDate={campaign.deadline} 
                           className="ml-1" 
                           showParens={true}
                         />
@@ -178,10 +178,10 @@ export default function CompactTableView({
                 <div className="col-span-2 hidden sm:flex items-center">
                   <div className="flex flex-col">
                     <span className="text-sm font-medium text-gray-900">
-                      {formatDate(campaign.endDate)}
+                      {formatDate(campaign.deadline)}
                     </span>
                     <DeadlineBadge 
-                      endDate={campaign.endDate}
+                      endDate={campaign.deadline}
                     />
                   </div>
                 </div>

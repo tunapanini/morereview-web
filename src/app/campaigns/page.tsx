@@ -66,8 +66,8 @@ export default function CampaignsPage() {
         campaign.startDate &&
         !isNaN(campaign.createdDate.getTime()) &&
         !isNaN(campaign.startDate.getTime()) &&
-        // endDate가 존재하는 경우에만 유효성 검사
-        (!campaign.endDate || !isNaN(campaign.endDate.getTime()))
+        // deadline이 존재하는 경우에만 유효성 검사
+        (!campaign.deadline || !isNaN(campaign.deadline.getTime()))
       );
 
       // 🚨 만료된 캠페인 자동 제외 및 상태 업데이트
@@ -119,8 +119,8 @@ export default function CampaignsPage() {
         campaign.startDate &&
         !isNaN(campaign.createdDate.getTime()) &&
         !isNaN(campaign.startDate.getTime()) &&
-        // endDate가 존재하는 경우에만 유효성 검사
-        (!campaign.endDate || !isNaN(campaign.endDate.getTime()))
+        // deadline이 존재하는 경우에만 유효성 검사
+        (!campaign.deadline || !isNaN(campaign.deadline.getTime()))
       );
 
       if (validCampaigns.length === 0) return [];
@@ -167,8 +167,8 @@ export default function CampaignsPage() {
         campaign.startDate &&
         !isNaN(campaign.createdDate.getTime()) &&
         !isNaN(campaign.startDate.getTime()) &&
-        // endDate가 존재하는 경우에만 유효성 검사
-        (!campaign.endDate || !isNaN(campaign.endDate.getTime()))
+        // deadline이 존재하는 경우에만 유효성 검사
+        (!campaign.deadline || !isNaN(campaign.deadline.getTime()))
       );
 
       // 만료된 캠페인 자동 제외

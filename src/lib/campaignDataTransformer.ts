@@ -449,8 +449,7 @@ export function convertRawDataToCampaigns(rawData: RawCampaignData[]): Campaign[
       visitType: visitType,
       location: location,
       startDate: startDate,
-      endDate: endDate,
-      deadline: endDate, // deadline 필드 추가 (endDate와 동일, null일 수 있음)
+      deadline: endDate, // deadline 필드 (null일 수 있음)
       // 🚨 개선된 상태 계산: ending-soon 상태도 고려 (deadline이 null이면 active 상태)
       status: (() => {
         if (!endDate) {
