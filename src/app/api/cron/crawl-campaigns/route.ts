@@ -3,6 +3,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { withCronAuth } from '@/middleware/cron-auth';
 import { SimpleCrawler } from '@/services/simple-crawler';
+import { pythonCrawler } from '@/services/python-crawler';
 // import { delay } from '@/utils/simple-http';
 
 async function cronHandler(request: NextRequest): Promise<NextResponse> {
@@ -12,6 +13,7 @@ async function cronHandler(request: NextRequest): Promise<NextResponse> {
   try {
     const { searchParams } = new URL(request.url);
     const mode = searchParams.get('mode') || 'all'; // 'all', 'reviewplace', 'reviewnote', 'revu'
+    const usePython = searchParams.get('python') === 'true'; // Python 크롤링 사용 여부
     
     const crawler = new SimpleCrawler();
     let results: Array<{
@@ -30,7 +32,22 @@ async function cronHandler(request: NextRequest): Promise<NextResponse> {
       error?: string;
     }> = [];
 
-    if (mode === 'all') {
+    // TODO: node.js 로직 삭제 후, python으로만 로직 처리
+    if (usePython) {
+      // 🐍 Python 크롤링 시스템 사용
+      console.log('🐍 Python 크롤링 모드 활성화');
+      const pythonResult = await pythonCrawler.crawlWithSave();
+      
+      results = [{
+        source: 'python-reviewplace',
+        success: pythonResult.success,
+        count: pythonResult.count,
+        duration: pythonResult.summary?.duration_ms,
+        saved: pythonResult.summary?.total_saved,
+        error: pythonResult.error
+      }];
+      
+    } else if (mode === 'all') {
       // 🚀 통합 크롤링 (모든 소스)
       // console.log('🎯 통합 크롤링 모드: 모든 소스 크롤링');
       const allSourcesResult = await crawler.crawlAllSources();

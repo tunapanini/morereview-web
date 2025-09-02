@@ -15,6 +15,7 @@
     "crawl:reviewnote": "curl http://localhost:3000/api/cron/crawl-campaigns?mode=reviewnote",
     "crawl:revu": "curl http://localhost:3000/api/cron/crawl-campaigns?mode=revu",
     "crawl:watch": "while true; do curl http://localhost:3000/api/cron/crawl-campaigns?mode=all; echo ''; sleep 600; done",
+    "crawl:python": "curl http://localhost:3000/api/cron/crawl-campaigns?python=true",
     "migrate:check": "curl -s http://localhost:3000/api/migrate-remaining-days | jq '.statistics'",
     "migrate:run": "curl -X POST http://localhost:3000/api/migrate-remaining-days",
     "crawl:simple": "curl http://localhost:3000/api/simple-crawl",

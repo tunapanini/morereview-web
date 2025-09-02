@@ -115,26 +115,23 @@ model raw_crawl_data {
   @@index([source_site], map: "idx_raw_crawl_data_source_site")
 }
 
-// Email subscribers with preferences and subscription status
 model EmailSubscriber {
-  id                Int               @id @default(autoincrement())
-  email             String            @unique @db.VarChar(255)
-  firstName         String?           @map("first_name") @db.VarChar(100)
-  lastName          String?           @map("last_name") @db.VarChar(100)
-  isActive          Boolean           @default(true) @map("is_active")
-  subscriptionToken String            @unique @map("subscription_token") @db.VarChar(255)
-  unsubscribeToken  String            @unique @map("unsubscribe_token") @db.VarChar(255)
-  subscriptionDate  DateTime          @default(now()) @map("subscription_date") @db.Timestamptz(6)
-  lastEmailSentAt   DateTime?         @map("last_email_sent_at") @db.Timestamptz(6)
-  emailFrequency    EmailFrequency    @default(DAILY) @map("email_frequency")
-  timezone          String            @default("Asia/Seoul") @db.VarChar(50)
-  createdAt         DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt         DateTime          @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
-
-  // Relations
-  preferences       UserPreference[]
-  emailEvents       EmailEvent[]
+  id                  Int                  @id @default(autoincrement())
+  email               String               @unique @db.VarChar(255)
+  firstName           String?              @map("first_name") @db.VarChar(100)
+  lastName            String?              @map("last_name") @db.VarChar(100)
+  isActive            Boolean              @default(true) @map("is_active")
+  subscriptionToken   String               @unique @map("subscription_token") @db.VarChar(255)
+  unsubscribeToken    String               @unique @map("unsubscribe_token") @db.VarChar(255)
+  subscriptionDate    DateTime             @default(now()) @map("subscription_date") @db.Timestamptz(6)
+  lastEmailSentAt     DateTime?            @map("last_email_sent_at") @db.Timestamptz(6)
+  emailFrequency      EmailFrequency       @default(DAILY) @map("email_frequency")
+  timezone            String               @default("Asia/Seoul") @db.VarChar(50)
+  createdAt           DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime             @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  emailEvents         EmailEvent[]
   personalizationLogs PersonalizationLog[]
+  preferences         UserPreference[]
 
   @@index([email])
   @@index([isActive])
@@ -142,18 +139,15 @@ model EmailSubscriber {
   @@map("email_subscribers")
 }
 
-// User preferences for campaign categories and personalization
 model UserPreference {
-  id           Int               @id @default(autoincrement())
-  subscriberId Int               @map("subscriber_id")
-  category     String            @db.VarChar(255)
-  preference   PreferenceLevel   @default(NEUTRAL)
-  isExplicit   Boolean           @default(false) @map("is_explicit")  // User-set vs system-learned
-  confidence   Float             @default(0.5) @db.DoublePrecision
-  lastUpdated  DateTime          @default(now()) @map("last_updated") @db.Timestamptz(6)
-  createdAt    DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
-
-  // Relations
+  id           Int             @id @default(autoincrement())
+  subscriberId Int             @map("subscriber_id")
+  category     String          @db.VarChar(255)
+  preference   PreferenceLevel @default(NEUTRAL)
+  isExplicit   Boolean         @default(false) @map("is_explicit")
+  confidence   Float           @default(0.5)
+  lastUpdated  DateTime        @default(now()) @map("last_updated") @db.Timestamptz(6)
+  createdAt    DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
   subscriber   EmailSubscriber @relation(fields: [subscriberId], references: [id], onDelete: Cascade)
 
   @@unique([subscriberId, category])
@@ -163,22 +157,19 @@ model UserPreference {
   @@map("user_preferences")
 }
 
-// Email events from SendGrid webhooks
 model EmailEvent {
-  id           Int               @id @default(autoincrement())
-  subscriberId Int               @map("subscriber_id")
-  messageId    String            @map("message_id") @db.VarChar(255)
-  eventType    EmailEventType    @map("event_type")
-  timestamp    DateTime          @db.Timestamptz(6)
-  email        String            @db.VarChar(255)
-  campaignId   String?           @map("campaign_id") @db.VarChar(255)
-  url          String?           @db.Text  // For clicks
-  reason       String?           @db.Text  // For bounces/drops
-  response     String?           @db.Text  // For errors
-  rawData      Json?             @map("raw_data")  // Full webhook payload
-  createdAt    DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
-
-  // Relations
+  id           Int             @id @default(autoincrement())
+  subscriberId Int             @map("subscriber_id")
+  messageId    String          @map("message_id") @db.VarChar(255)
+  eventType    EmailEventType  @map("event_type")
+  timestamp    DateTime        @db.Timestamptz(6)
+  email        String          @db.VarChar(255)
+  campaignId   String?         @map("campaign_id") @db.VarChar(255)
+  url          String?
+  reason       String?
+  response     String?
+  rawData      Json?           @map("raw_data")
+  createdAt    DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
   subscriber   EmailSubscriber @relation(fields: [subscriberId], references: [id], onDelete: Cascade)
 
   @@index([subscriberId])
@@ -188,19 +179,16 @@ model EmailEvent {
   @@map("email_events")
 }
 
-// Personalization algorithm logs and recommendations
 model PersonalizationLog {
-  id                  Int               @id @default(autoincrement())
-  subscriberId        Int               @map("subscriber_id")
-  algorithmVersion    String            @map("algorithm_version") @db.VarChar(50)
-  recommendedCampaigns Json             @map("recommended_campaigns")  // Array of campaign IDs with scores
-  personalizationScore Float            @map("personalization_score") @db.DoublePrecision
-  factors             Json              // Key factors that influenced the recommendation
-  executionTime       Int               @map("execution_time")  // Algorithm execution time in ms
-  createdAt           DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
-
-  // Relations
-  subscriber          EmailSubscriber @relation(fields: [subscriberId], references: [id], onDelete: Cascade)
+  id                   Int             @id @default(autoincrement())
+  subscriberId         Int             @map("subscriber_id")
+  algorithmVersion     String          @map("algorithm_version") @db.VarChar(50)
+  recommendedCampaigns Json            @map("recommended_campaigns")
+  personalizationScore Float           @map("personalization_score")
+  factors              Json
+  executionTime        Int             @map("execution_time")
+  createdAt            DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  subscriber           EmailSubscriber @relation(fields: [subscriberId], references: [id], onDelete: Cascade)
 
   @@index([subscriberId])
   @@index([algorithmVersion])
@@ -208,7 +196,6 @@ model PersonalizationLog {
   @@map("personalization_logs")
 }
 
-// Enums for email system
 enum EmailFrequency {
   DAILY
   WEEKLY
@@ -217,10 +204,10 @@ enum EmailFrequency {
 }
 
 enum PreferenceLevel {
-  DISLIKE      // -1
-  NEUTRAL      //  0
-  LIKE         //  1
-  LOVE         //  2
+  DISLIKE
+  NEUTRAL
+  LIKE
+  LOVE
 }
 
 enum EmailEventType {
