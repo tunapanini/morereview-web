@@ -1,4 +1,5 @@
 import { Campaign, CampaignFilters, CampaignSource, CampaignPlatform } from '@/types/campaign';
+import { logger } from '@/utils/logger';
 
 // Platform brand colors
 export const platformColors: Record<CampaignPlatform, string> = {
@@ -236,14 +237,14 @@ export function filterActiveCampaigns(campaigns: Campaign[]): Campaign[] {
       // deadline이 null인 경우(deadline 추출 실패) 활성 상태로 처리
       const isActive = !campaign.deadline || campaign.deadline > now;
       if (!isActive && process.env.NODE_ENV === 'development') {
-        console.warn(`🚨 만료된 캠페인 필터링: ${campaign.title} (마감일: ${campaign.deadline?.toISOString()})`);
+        logger.dev('만료된 캠페인 필터링', { title: campaign.title, deadline: campaign.deadline?.toISOString() });
       }
       return isActive;
     });
     
   const filteredCount = originalCount - activeCampaigns.length;
   if (filteredCount > 0 && process.env.NODE_ENV === 'development') {
-    console.warn(`✅ 만료 캠페인 필터링 완료: ${filteredCount}개 제외, ${activeCampaigns.length}개 활성 캠페인`);
+    logger.info('만료 캠페인 필터링 완료', { filtered_count: filteredCount, active_count: activeCampaigns.length });
   }
   
   return activeCampaigns;
@@ -288,7 +289,7 @@ export const storage = {
       window.localStorage.setItem(key, JSON.stringify(value));
     } catch {
       // Handle quota exceeded or other errors
-      console.warn('Failed to save to localStorage');
+      logger.warn('localStorage 저장 실패');
     }
   },
 
@@ -304,13 +305,13 @@ export const storage = {
 export const logCoupangError = (component: string, error: string, details?: unknown) => {
   if (process.env.NODE_ENV === 'production') {
     // 프로덕션에서는 콘솔 로그 대신 에러 추적 서비스로 전송
-    console.warn(`[Coupang Error] ${component}: ${error}`, details);
+    logger.warn('Coupang 경고', { component, error: error.toString(), details });
 
     // 여기에 Sentry나 다른 에러 추적 서비스로 전송하는 로직을 추가할 수 있습니다
     // 예: Sentry.captureException(new Error(`Coupang ${component} Error: ${error}`));
   } else {
     // 개발 환경에서는 상세한 로그 출력
-    console.error(`[Coupang Error] ${component}:`, error, details);
+    logger.error('Coupang 에러', { component, error: error.toString(), details });
   }
 };
 

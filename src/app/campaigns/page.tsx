@@ -128,7 +128,9 @@ export default function CampaignsPage() {
       // 클라이언트 필터링만 수행 (정렬은 서버에서 이미 완료됨)
       return filterCampaigns(validCampaigns, filters);
     } catch (error) {
-      console.error('Error filtering campaigns:', error);
+      logger.error('캠페인 필터링 에러', { 
+        error: error instanceof Error ? error.message : String(error) 
+      });
       return [];
     }
   }, [campaigns, filters]);
