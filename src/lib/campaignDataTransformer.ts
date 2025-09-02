@@ -381,7 +381,8 @@ export function convertRawDataToCampaigns(rawData: RawCampaignData[]): Campaign[
     const platforms = mapToPlatforms(raw.channels, raw.title);
     // 크롤링 시점 (created_at)을 기준으로 고정된 마감일 계산
     const crawledAt = raw.created_at ? new Date(raw.created_at) : new Date();
-    const { startDate, endDate } = calculateDates(raw.deadline || null, crawledAt);
+    const deadline = raw.deadline ? (typeof raw.deadline === 'string' ? new Date(raw.deadline) : raw.deadline) : null;
+    const { startDate, endDate } = calculateDates(deadline, crawledAt);
 
     // 위치 정보 추출 및 방문 유형 결정
     const location = extractLocation(raw.title, raw.description);
