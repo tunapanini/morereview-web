@@ -967,80 +967,15 @@ function AdBannerFallback({ id = '912199', template = 'banner', trackingCode = '
     (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$15$2e$4$2e$6_$40$playwright$2b$test$40$1$2e$55$2e$0_react$2d$dom$40$19$2e$1$2e$0_react$40$19$2e$1$2e$0_$5f$react$40$19$2e$1$2e$0$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useEffect"])(()=>{
         if (scriptLoadedRef.current) return;
         scriptLoadedRef.current = true;
-        const loadCoupangAd = ()=>{
-            return new Promise((resolve, reject)=>{
-                // 쿠팡 스크립트 로드
-                const script = document.createElement('script');
-                script.src = 'https://ads-partners.coupang.com/g.js';
-                script.async = true;
-                script.onload = ()=>{
-                    try {
-                        // 타임아웃으로 실패 케이스 처리
-                        const timeout = setTimeout(()=>{
-                            reject(new Error('Coupang ad timeout'));
-                        }, 3000);
-                        // PartnersCoupang 객체 확인 및 실행
-                        const checkCoupang = ()=>{
-                            if (window.PartnersCoupang?.G) {
-                                clearTimeout(timeout);
-                                new window.PartnersCoupang.G({
-                                    id: parseInt(id),
-                                    template,
-                                    trackingCode,
-                                    width,
-                                    height
-                                });
-                                resolve();
-                            } else {
-                                // 100ms 후 재시도
-                                setTimeout(checkCoupang, 100);
-                            }
-                        };
-                        checkCoupang();
-                    } catch (error) {
-                        reject(error);
-                    }
-                };
-                script.onerror = ()=>{
-                    reject(new Error('Failed to load Coupang script'));
-                };
-                document.head.appendChild(script);
-            });
-        };
-        const loadGoogleAd = ()=>{
-            return new Promise((resolve, reject)=>{
-                // 개발 환경에서는 Google AdSense를 건너뛰고 바로 실패 처리
-                if ("TURBOPACK compile-time truthy", 1) {
-                    console.warn('⚠️ Google AdSense skipped in development environment');
-                    reject(new Error('AdSense not supported in development'));
-                    return;
-                }
-                //TURBOPACK unreachable
-                ;
-                // 구글 애드센스 스크립트 로드 (프로덕션만)
-                const script = undefined;
-            });
-        };
-        // 쿠팡 광고 먼저 시도
-        loadCoupangAd().then(()=>{
-            setAdStatus('coupang');
-            console.warn('✅ Coupang ad loaded successfully');
-        }).catch((error)=>{
-            console.warn('⚠️ Coupang ad failed, trying Google AdSense:', error);
-            // 쿠팡 실패 시 구글 애드센스로 폴백
-            if (fallbackAdSlot) {
-                loadGoogleAd().then(()=>{
-                    setAdStatus('google');
-                    console.warn('✅ Google AdSense fallback loaded successfully');
-                }).catch((googleError)=>{
-                    console.error('❌ Both ad systems failed:', googleError);
-                    setAdStatus('error');
-                });
-            } else {
-                console.warn('⚠️ No fallback ad slot provided');
-                setAdStatus('error');
-            }
-        });
+        // 개발 환경에서는 광고 로딩을 건너뜁니다
+        if ("TURBOPACK compile-time truthy", 1) {
+            setAdStatus('error'); // 에러 상태로 설정하여 광고를 숨김
+            return;
+        }
+        //TURBOPACK unreachable
+        ;
+        const loadCoupangAd = undefined;
+        const loadGoogleAd = undefined;
     }, [
         id,
         template,
@@ -1060,7 +995,7 @@ function AdBannerFallback({ id = '912199', template = 'banner', trackingCode = '
         }
     }, void 0, false, {
         fileName: "[project]/src/components/ui/AdBannerFallback.tsx",
-        lineNumber: 165,
+        lineNumber: 171,
         columnNumber: 5
     }, this);
 }
