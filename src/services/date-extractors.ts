@@ -7,7 +7,7 @@ import { DateInfo } from '@/types/simple-crawler';
 export abstract class BaseDateExtractor {
   protected currentYear = new Date().getFullYear();
   
-  abstract extractFromListPage($: cheerio.CheerioAPI, $item: any): string | null;
+  abstract extractFromListPage(_$: cheerio.CheerioAPI, $item: cheerio.Cheerio<any>): string | null;
   abstract extractFromDetailPage(detailUrl: string): Promise<DateInfo | null>;
   
   // 공통 유틸리티 메서드들
@@ -45,13 +45,8 @@ export abstract class BaseDateExtractor {
     const diffTime = targetMidnight.getTime() - todayMidnight.getTime();
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     
-    // 디버깅용 로깅
-    console.log(`📅 마감일 계산: 오늘(${now.toLocaleDateString('ko-KR')}) → 마감일(${targetDate.toLocaleDateString('ko-KR')})`);
-    console.log(`⏰ 시간 차이: ${diffTime}ms = ${diffDays}일`);
-    
     // 당일 마감인 경우 D-0, 내일 마감인 경우 D-1
     const remainingDays = Math.max(diffDays, 0);
-    console.log(`✅ 최종 계산: D-${remainingDays}`);
     
     return remainingDays;
   }
@@ -63,7 +58,7 @@ export abstract class BaseDateExtractor {
 }
 
 export class ReviewPlaceExtractor extends BaseDateExtractor {
-  extractFromListPage($: cheerio.CheerioAPI, $item: any): string | null {
+  extractFromListPage(_$: cheerio.CheerioAPI, $item: cheerio.Cheerio<any>): string | null {
     const text = $item.text();
     
     // 다양한 패턴으로 마감일 추출 시도
@@ -90,8 +85,7 @@ export class ReviewPlaceExtractor extends BaseDateExtractor {
   
   async extractFromDetailPage(detailUrl: string): Promise<DateInfo | null> {
     try {
-      console.log(`🔍 상세 페이지에서 날짜 추출 시도: ${detailUrl}`);
-      const html = await fetchHTML(detailUrl);
+        const html = await fetchHTML(detailUrl);
       const $ = cheerio.load(html);
       
       // 캠페인 정보가 있을 법한 섹션들 탐색
@@ -161,16 +155,13 @@ export class ReviewPlaceExtractor extends BaseDateExtractor {
     }
     
     let recruitmentEnd: Date | null = null;
-    let remainingDays = 7; // 기본값
     
     // 🚨 모집기간을 최우선으로 처리 (실제 캠페인 마감일)
     if (recruitmentMatch) {
       const endMonth = parseInt(recruitmentMatch[3], 10);
       const endDay = parseInt(recruitmentMatch[4], 10);
       recruitmentEnd = new Date(this.currentYear, endMonth - 1, endDay);
-      remainingDays = this.calculateRemainingDays(recruitmentEnd);
       
-      console.log(`✅ 모집기간 추출 성공 (우선 적용): ${recruitmentMatch[0]}, 남은 일수: ${remainingDays}`);
       
       return {
         recruitmentEnd
@@ -182,9 +173,7 @@ export class ReviewPlaceExtractor extends BaseDateExtractor {
       const startMonth = parseInt(reviewMatch[1], 10);
       const startDay = parseInt(reviewMatch[2], 10);
       const reviewStart = new Date(this.currentYear, startMonth - 1, startDay);
-      remainingDays = this.calculateRemainingDays(reviewStart);
       
-      console.log(`⚠️ 모집기간 없음, 리뷰기간으로 대체: ${reviewMatch[0]}, 남은 일수: ${remainingDays}`);
       
       return {
         recruitmentEnd: reviewStart
@@ -196,7 +185,7 @@ export class ReviewPlaceExtractor extends BaseDateExtractor {
 }
 
 export class ReviewNoteExtractor extends BaseDateExtractor {
-  extractFromListPage($: cheerio.CheerioAPI, $item: any): string | null {
+  extractFromListPage(_$: cheerio.CheerioAPI, $item: cheerio.Cheerio<any>): string | null {
     const text = $item.text();
     
     // 1. 먼저 구체적인 날짜 패턴 시도 (8/26 ~ 9/5 형식)
@@ -291,7 +280,7 @@ export class ReviewNoteExtractor extends BaseDateExtractor {
 }
 
 export class RevuExtractor extends BaseDateExtractor {
-  extractFromListPage($: cheerio.CheerioAPI, $item: any): string | null {
+  extractFromListPage(_$: cheerio.CheerioAPI, $item: cheerio.Cheerio<any>): string | null {
     // Revu는 SPA라서 목록 페이지에서 추출이 어려울 수 있음
     const text = $item.text();
     
@@ -335,7 +324,7 @@ export class SafeDateExtractor {
   async extractDeadline(
     source: string, 
     $: cheerio.CheerioAPI, 
-    $item: any,
+    $item: cheerio.Cheerio<any>,
     detailUrl?: string
   ): Promise<string> {
     const extractor = this.extractors.get(source);
@@ -348,23 +337,19 @@ export class SafeDateExtractor {
     try {
       // Level 1: 목록 페이지에서 추출
       let deadline = extractor.extractFromListPage($, $item);
-      console.log(`Level 1 추출 결과 (${source}):`, deadline);
       
       // Level 2: 상세 페이지에서 추출 (목록에서 실패한 경우만)
       if (!deadline && detailUrl) {
-        console.log(`Level 2 시도: ${detailUrl}`);
         const dateInfo = await extractor.extractFromDetailPage(detailUrl);
         if (dateInfo) {
           const remainingDays = Math.ceil((dateInfo.recruitmentEnd.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
           deadline = `D-${Math.max(0, remainingDays)}`;
-          console.log(`Level 2 추출 성공:`, deadline);
         }
       }
       
       // Level 3: 기본값 적용 (절대 null 반환하지 않음)
       if (!deadline) {
         deadline = 'D-7';
-        console.log(`Level 3 기본값 적용: ${deadline}`);
       }
       
       return deadline;

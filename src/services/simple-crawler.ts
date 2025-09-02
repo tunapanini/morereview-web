@@ -4,14 +4,12 @@ import * as cheerio from 'cheerio';
 import { fetchHTML, delay } from '@/utils/simple-http';
 import { SimpleCampaign, CrawlResult, ValidationResult } from '@/types/simple-crawler';
 import { SimpleDBSaver } from './simple-db-saver';
-import { UniversalDateExtractor } from './universal-date-extractor';
 import { DataQualityMonitor } from './data-quality-monitor';
 import { DynamicCrawler } from './dynamic-crawler';
 import { CampaignParser } from './campaign-parser';
 
 export class SimpleCrawler {
   private dbSaver = new SimpleDBSaver();
-  private dateExtractor = new UniversalDateExtractor();
   private qualityMonitor = new DataQualityMonitor();
   private dynamicCrawler = new DynamicCrawler();
   private parser = new CampaignParser();
@@ -142,18 +140,15 @@ export class SimpleCrawler {
     const startTime = Date.now();
     
     try {
-      console.log(`🌐 Revu 하이브리드 크롤링 시작 (동적 → 정적 폴백)`);
       
       let campaigns: SimpleCampaign[] = [];
       
       // 1차 시도: Puppeteer 동적 크롤링
       try {
-        console.log('🚀 Revu SPA 동적 크롤링 시도...');
         
         campaigns = await this.dynamicCrawler.crawlRevuSPA();
         
         if (campaigns.length > 0) {
-          console.log(`✅ Revu 동적 크롤링 성공: ${campaigns.length}개 캠페인`);
         } else {
           throw new Error('동적 크롤링 결과 없음');
         }
@@ -165,7 +160,6 @@ export class SimpleCrawler {
           const url = `https://www.revu.net/category/${encodeURIComponent(category)}`;
           const html = await fetchHTML(url);
           campaigns = await this.parseHTML(html, 'revu.net');
-          console.log(`🔄 Revu 정적 폴백 완료: ${campaigns.length}개 캠페인`);
         } catch (staticError) {
           console.error('❌ Revu 정적 폴백도 실패:', (staticError as Error).message);
           throw new Error(`동적/정적 크롤링 모두 실패: ${(dynamicError as Error).message}`);
@@ -196,7 +190,6 @@ export class SimpleCrawler {
       }
       
       const duration = Date.now() - startTime;
-      console.log(`✅ Revu 완료: ${uniqueCampaigns.length}개 캠페인, 유효: ${validation.validCount}개, DB 저장: ${savedCount}개, ${duration}ms`);
       
       return {
         success: true,
@@ -223,11 +216,9 @@ export class SimpleCrawler {
     const allResults: CrawlResult[] = [];
     const totalCampaigns: SimpleCampaign[] = [];
     
-    console.log('🚀 통합 크롤링 시작 (모든 소스)');
     
     try {
       // 1. ReviewPlace 크롤링 (기존)
-      console.log('1️⃣ ReviewPlace 크롤링...');
       const reviewplaceResult = await this.crawlReviewplace('제품');
       allResults.push(reviewplaceResult);
       if (reviewplaceResult.success) {
@@ -236,7 +227,6 @@ export class SimpleCrawler {
       await delay(2000); // 2초 딜레이
 
       // 2. ReviewNote 크롤링 (신규)
-      console.log('2️⃣ ReviewNote 크롤링...');
       const reviewnoteResult = await this.crawlReviewnote();
       allResults.push(reviewnoteResult);
       if (reviewnoteResult.success) {
@@ -245,7 +235,6 @@ export class SimpleCrawler {
       await delay(3000); // 3초 딜레이 (더 신중하게)
 
       // 3. Revu 크롤링 (신규)
-      console.log('3️⃣ Revu 크롤링...');
       const revuResult = await this.crawlRevu('제품');
       allResults.push(revuResult);
       if (revuResult.success) {
@@ -257,7 +246,6 @@ export class SimpleCrawler {
       const successCount = allResults.filter(r => r.success).length;
       const totalSaved = allResults.reduce((sum, r) => sum + (r.saved || 0), 0);
 
-      console.log(`🎯 통합 크롤링 완료: ${successCount}/${allResults.length}개 소스 성공, 총 ${totalCampaigns.length}개 캠페인, DB 저장: ${totalSaved}개, ${totalDuration}ms`);
 
       return {
         success: successCount > 0,
@@ -287,7 +275,6 @@ export class SimpleCrawler {
   private async parseHTML(html: string, source: string): Promise<SimpleCampaign[]> {
     const $ = cheerio.load(html);
     
-    console.log(`🔍 ${source} HTML 파싱 시작`);
     
     // 통합 파서 사용
     let campaigns: SimpleCampaign[] = [];
@@ -310,7 +297,6 @@ export class SimpleCrawler {
     
     campaigns = await this.parser.parseWithConfig($, config);
     
-    console.log(`✅ ${source} 파싱 완료: ${campaigns.length}개 유효 캠페인`);
     return campaigns;
   }
 

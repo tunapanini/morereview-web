@@ -42,6 +42,12 @@ export default function AdBannerFallback({
     if (scriptLoadedRef.current) return;
     scriptLoadedRef.current = true;
 
+    // 개발 환경에서는 광고 로딩을 건너뜁니다
+    if (process.env.NODE_ENV === 'development') {
+      setAdStatus('error'); // 에러 상태로 설정하여 광고를 숨김
+      return;
+    }
+
     const loadCoupangAd = () => {
       return new Promise<void>((resolve, reject) => {
         // 쿠팡 스크립트 로드

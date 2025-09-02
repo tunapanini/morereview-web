@@ -26,7 +26,7 @@ export class CampaignParser {
     const campaigns: SimpleCampaign[] = [];
     
     // 설정에 따라 아이템 찾기
-    let items: any = null;
+    let items: cheerio.Cheerio<any> | null = null;
     for (const selector of config.itemSelectors) {
       const found = $(selector);
       if (found.length > 0) {
@@ -108,7 +108,7 @@ export class CampaignParser {
     return campaigns;
   }
 
-  private extractTitle($item: any, titleSelectors: string[]): string {
+  private extractTitle($item: cheerio.Cheerio<any>, titleSelectors: string[]): string {
     for (const selector of titleSelectors) {
       const title = $item.find(selector).first().text().trim();
       if (title && title.length > 0) {
@@ -118,7 +118,7 @@ export class CampaignParser {
     return '';
   }
 
-  private extractUrl($item: any, config: ParsingConfig): string {
+  private extractUrl($item: cheerio.Cheerio<any>, config: ParsingConfig): string {
     const detailUrl = $item.attr('href');
     if (!detailUrl) return '';
 

@@ -39,7 +39,7 @@ const nextConfig: NextConfig = {
             key: 'Content-Security-Policy',
             value: [
               "default-src 'self'",
-              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://ads-partners.coupang.com https://coupa.ng",
+              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://ads-partners.coupang.com https://coupa.ng https://va.vercel-scripts.com https://partners.coupangcdn.com",
               "style-src 'self' 'unsafe-inline' https://partners.coupangcdn.com",
               "img-src 'self' data: https: blob:",
               "font-src 'self' data:",
@@ -67,7 +67,7 @@ const nextConfig: NextConfig = {
           },
           {
             key: 'Permissions-Policy',
-            value: 'accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=()'
+            value: 'accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(self), usb=()'
           }
         ],
       },

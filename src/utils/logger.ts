@@ -27,7 +27,7 @@ type LogLevel = keyof typeof LOG_LEVELS;
 const currentLogLevel = LOG_LEVELS[LOG_LEVEL as LogLevel] || LOG_LEVELS.error;
 
 // 민감한 정보 마스킹
-function maskSensitiveData(data: any): any {
+function maskSensitiveData(data: unknown): unknown {
   if (typeof data !== 'object' || data === null) {
     return data;
   }
@@ -44,11 +44,11 @@ function maskSensitiveData(data: any): any {
     
     // 민감한 키인 경우 마스킹
     if (sensitiveKeys.some(sensitive => lowerKey.includes(sensitive))) {
-      masked[key] = '[MASKED]';
+      (masked as any)[key] = '[MASKED]';
     } 
     // 객체인 경우 재귀적으로 처리
-    else if (typeof masked[key] === 'object' && masked[key] !== null) {
-      masked[key] = maskSensitiveData(masked[key]);
+    else if (typeof (masked as any)[key] === 'object' && (masked as any)[key] !== null) {
+      (masked as any)[key] = maskSensitiveData((masked as any)[key]);
     }
   }
 
@@ -56,7 +56,7 @@ function maskSensitiveData(data: any): any {
 }
 
 // 로그 포맷팅
-function formatLog(level: string, message: string, data?: any): string {
+function formatLog(level: string, message: string, data?: unknown): string {
   const timestamp = new Date().toISOString();
   const environment = IS_SERVER ? 'SERVER' : 'CLIENT';
   
@@ -74,8 +74,9 @@ export const logger = {
   /**
    * 개발 환경 전용 로그
    */
-  dev: (message: string, data?: any) => {
+  dev: (message: string, data?: unknown) => {
     if (currentLogLevel >= LOG_LEVELS.dev) {
+      // eslint-disable-next-line no-console
       console.log(formatLog('DEV', message, data));
     }
   },
@@ -83,8 +84,9 @@ export const logger = {
   /**
    * 정보성 로그
    */
-  info: (message: string, data?: any) => {
+  info: (message: string, data?: unknown) => {
     if (currentLogLevel >= LOG_LEVELS.info) {
+      // eslint-disable-next-line no-console
       console.log(formatLog('INFO', message, data));
     }
   },
@@ -92,7 +94,7 @@ export const logger = {
   /**
    * 경고 로그
    */
-  warn: (message: string, data?: any) => {
+  warn: (message: string, data?: unknown) => {
     if (currentLogLevel >= LOG_LEVELS.warn) {
       console.warn(formatLog('WARN', message, data));
     }
@@ -101,7 +103,7 @@ export const logger = {
   /**
    * 에러 로그
    */
-  error: (message: string, data?: any) => {
+  error: (message: string, data?: unknown) => {
     if (currentLogLevel >= LOG_LEVELS.error) {
       console.error(formatLog('ERROR', message, data));
     }
@@ -112,12 +114,14 @@ export const logger = {
    */
   time: (label: string) => {
     if (currentLogLevel >= LOG_LEVELS.dev) {
+      // eslint-disable-next-line no-console
       console.time(label);
     }
   },
 
   timeEnd: (label: string) => {
     if (currentLogLevel >= LOG_LEVELS.dev) {
+      // eslint-disable-next-line no-console
       console.timeEnd(label);
     }
   },
@@ -127,12 +131,14 @@ export const logger = {
    */
   group: (label: string) => {
     if (currentLogLevel >= LOG_LEVELS.dev) {
+      // eslint-disable-next-line no-console
       console.group(label);
     }
   },
 
   groupEnd: () => {
     if (currentLogLevel >= LOG_LEVELS.dev) {
+      // eslint-disable-next-line no-console
       console.groupEnd();
     }
   },
