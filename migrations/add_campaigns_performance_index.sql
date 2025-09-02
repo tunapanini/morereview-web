@@ -15,7 +15,7 @@ ON campaigns (category, is_hidden, is_invalid, created_at DESC, id DESC);
 
 -- 4. deadline 정렬 최적화를 위한 복합 인덱스
 CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_campaigns_deadline_sort
-ON campaigns (is_hidden, is_invalid, deadline DESC, remaining_days DESC, id DESC);
+ON campaigns (is_hidden, is_invalid, deadline DESC, id DESC);
 
 -- 성능 통계 업데이트
 ANALYZE campaigns;
