@@ -418,14 +418,17 @@ export default function CampaignsPage() {
                     className="relative overflow-hidden bg-primary-600 text-white px-8 py-3 rounded-lg hover:bg-primary-700 transition-colors body-md hover-lift disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {/* Progress bar background */}
-                    {isAutoLoading && !isLoadingMore && (
+                    {(isAutoLoading || isLoadingMore) && (
                       <div
                         className="absolute inset-0 bg-primary-800 rounded-lg transition-all duration-100 ease-linear"
-                        style={{ width: `${autoLoadProgress}%` }}
+                        style={{ 
+                          width: isLoadingMore ? '100%' : `${autoLoadProgress}%`,
+                          transitionDuration: isLoadingMore ? '800ms' : '100ms'
+                        }}
                       />
                     )}
                     <span className="relative z-10">
-                      {isLoadingMore ? '로딩 중...' : `더보기 (${totalCampaigns - displayedCampaigns.length}개 남음)`}
+                      더보기 ({totalCampaigns - displayedCampaigns.length}개 남음)
                     </span>
                   </button>
                 </div>
