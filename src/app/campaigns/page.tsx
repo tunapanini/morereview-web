@@ -8,7 +8,7 @@ import CampaignFiltersComponent from '@/components/ui/CampaignFilters';
 import CompactTableView from '@/components/ui/CompactTableView';
 import CampaignTableSkeleton from '@/components/ui/CampaignTableSkeleton';
 import { loadRealCampaignData } from '@/lib/campaignDataTransformer';
-import { filterCampaigns } from '@/lib/utils';
+import { filterCampaigns, filterActiveCampaigns } from '@/lib/utils';
 import { useFavorites } from '@/hooks/useFavorites';
 
 import { CampaignFilters, CampaignPlatform, CampaignVisitType, Campaign } from '@/types/campaign';
@@ -66,9 +66,11 @@ export default function CampaignsPage() {
           return acc;
         }, new Map<string, Campaign>());
 
-        const finalCampaigns = Array.from(uniqueCampaigns.values());
+        // 🚨 만료된 캠페인 자동 제외 및 상태 업데이트
+        const activeCampaigns = filterActiveCampaigns(Array.from(uniqueCampaigns.values()));
+        const finalCampaigns = activeCampaigns;
 
-        logger.dev(`Loaded ${finalCampaigns.length} unique campaigns out of ${validCampaigns.length} valid campaigns`);
+        logger.dev(`Loaded ${finalCampaigns.length} active campaigns out of ${validCampaigns.length} valid campaigns (expired campaigns filtered out)`);
         setCampaigns(finalCampaigns);
       } catch (error) {
         logger.error('Failed to load campaigns', error);

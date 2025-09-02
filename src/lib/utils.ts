@@ -14,6 +14,13 @@ export const platformColors: Record<CampaignPlatform, string> = {
 export function filterCampaigns(campaigns: Campaign[], filters: CampaignFilters): Campaign[] {
   let filtered = [...campaigns];
 
+  // 🚨 마감일 필터링 추가: 만료된 캠페인 자동 제외
+  const now = new Date();
+  filtered = filtered.filter((campaign) => {
+    // endDate가 현재 시간보다 이후인 캠페인만 표시 (만료되지 않은 캠페인)
+    return campaign.endDate && campaign.endDate > now;
+  });
+
   // Search query filter
   if (filters.searchQuery.trim()) {
     const query = filters.searchQuery.toLowerCase().trim();
@@ -189,6 +196,48 @@ export function getDaysUntilEnd(endDate: Date | undefined): number {
   const now = new Date();
   const diffTime = endDate.getTime() - now.getTime();
   return Math.floor(diffTime / (1000 * 60 * 60 * 24));
+}
+
+// 🚨 캠페인 상태 실시간 업데이트 함수 추가
+export function updateCampaignStatus(campaign: Campaign): Campaign {
+  const daysUntilEnd = getDaysUntilEnd(campaign.endDate);
+  
+  let status: Campaign['status'];
+  if (daysUntilEnd <= 0) {
+    status = 'closed';
+  } else if (daysUntilEnd <= 2) {
+    status = 'ending-soon';
+  } else {
+    status = 'active';
+  }
+  
+  return {
+    ...campaign,
+    status
+  };
+}
+
+// 🚨 만료되지 않은 캠페인만 반환하는 유틸리티 함수
+export function filterActiveCampaigns(campaigns: Campaign[]): Campaign[] {
+  const originalCount = campaigns.length;
+  
+  const activeCampaigns = campaigns
+    .map(updateCampaignStatus) // 상태 실시간 업데이트
+    .filter(campaign => {
+      const now = new Date();
+      const isActive = campaign.endDate && campaign.endDate > now;
+      if (!isActive && process.env.NODE_ENV === 'development') {
+        console.warn(`🚨 만료된 캠페인 필터링: ${campaign.title} (마감일: ${campaign.endDate?.toISOString()})`);
+      }
+      return isActive;
+    });
+    
+  const filteredCount = originalCount - activeCampaigns.length;
+  if (filteredCount > 0 && process.env.NODE_ENV === 'development') {
+    console.warn(`✅ 만료 캠페인 필터링 완료: ${filteredCount}개 제외, ${activeCampaigns.length}개 활성 캠페인`);
+  }
+  
+  return activeCampaigns;
 }
 
 

@@ -1,5 +1,5 @@
 /**
- * Python 크롤링 시스템 subprocess 호출 서비스
+ * Python 스크래핑 시스템 subprocess 호출 서비스
  */
 import { exec } from 'child_process';
 import { promisify } from 'util';
@@ -7,9 +7,9 @@ import path from 'path';
 
 const execAsync = promisify(exec);
 
-interface PythonCrawlResult {
+interface PythonScrapeResult {
   success: boolean;
-  data: any[];
+  data: unknown[];
   count: number;
   summary?: {
     total_found: number;
@@ -21,7 +21,7 @@ interface PythonCrawlResult {
   error?: string;
 }
 
-export class PythonCrawlerService {
+export class PythonScraperService {
   private readonly scrapingPath: string;
 
   constructor() {
@@ -29,13 +29,13 @@ export class PythonCrawlerService {
   }
 
   /**
-   * Python 크롤링 실행 (저장 포함)
+   * Python 스크래핑 실행 (저장 포함)
    */
-  async crawlWithSave(): Promise<PythonCrawlResult> {
+  async scrapeWithSave(): Promise<PythonScrapeResult> {
     const startTime = Date.now();
     
     try {
-      console.log('🐍 Python 크롤링 시작 (Supabase 저장)');
+      console.warn('🐍 Python 스크래핑 시작 (Supabase 저장)');
       
       // Poetry 환경에서 Python 스크립트 실행 (로그 숨김)
       const command = `cd "${this.scrapingPath}" && poetry run python -c "
@@ -49,11 +49,11 @@ async def main():
     try:
         from database.supabase_client import SupabaseClient
         from models import CampaignData
-        from crawlers.reviewplace import ReviewPlaceCrawler
+        from scrapers.reviewplace import ReviewPlaceScraper
         
-        # ReviewPlace 크롤링
-        async with ReviewPlaceCrawler() as crawler:
-            result = await crawler.crawl('제품')
+        # ReviewPlace 스크래핑
+        async with ReviewPlaceScraper() as scraper:
+            result = await scraper.scrape('제품')
             campaigns = result.campaigns
         
         if campaigns:
@@ -109,7 +109,7 @@ asyncio.run(main())
       }
 
       // JSON 응답 파싱
-      const result: PythonCrawlResult = JSON.parse(stdout.trim());
+      const result: PythonScrapeResult = JSON.parse(stdout.trim());
       
       // 실제 처리 시간 추가
       const duration = Date.now() - startTime;
@@ -117,7 +117,7 @@ asyncio.run(main())
         result.summary.duration_ms = duration;
       }
 
-      console.log(`🐍 Python 크롤링 완료: ${result.count}개 수집, ${result.summary?.total_saved || 0}개 저장`);
+      console.warn(`🐍 Python 스크래핑 완료: ${result.count}개 수집, ${result.summary?.total_saved || 0}개 저장`);
       
       return result;
 
@@ -125,7 +125,7 @@ asyncio.run(main())
       const duration = Date.now() - startTime;
       const errorMessage = error instanceof Error ? error.message : String(error);
       
-      console.error('❌ Python 크롤링 실패:', errorMessage);
+      console.error('❌ Python 스크래핑 실패:', errorMessage);
       
       return {
         success: false,
@@ -166,4 +166,4 @@ asyncio.run(main())
   }
 }
 
-export const pythonCrawler = new PythonCrawlerService();
+export const pythonScraper = new PythonScraperService();

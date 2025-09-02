@@ -441,7 +441,19 @@ export function convertRawDataToCampaigns(rawData: RawCampaignData[]): Campaign[
       location: location,
       startDate: startDate,
       endDate: endDate,
-      status: endDate > new Date() ? 'active' as const : 'closed' as const,
+      // 🚨 개선된 상태 계산: ending-soon 상태도 고려
+      status: (() => {
+        const now = new Date();
+        const daysUntilEnd = Math.floor((endDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+        
+        if (daysUntilEnd <= 0) {
+          return 'closed' as const;
+        } else if (daysUntilEnd <= 2) {
+          return 'ending-soon' as const;
+        } else {
+          return 'active' as const;
+        }
+      })(),
       createdDate: startDate, // 시작일을 등록일로 사용
       source: finalSource,
       sourceUrl: raw.detail_url,
