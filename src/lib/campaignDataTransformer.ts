@@ -341,8 +341,10 @@ function calculateDates(deadline: Date | null, crawledAt?: Date): { startDate: D
     actualDeadline = new Date(deadline);
   } else {
     // deadline 추출 실패 - 에러 로그로 기록하지만 계속 처리
-    console.error('🚨 [DEADLINE_EXTRACTION_FAILED] deadline 추출 실패 - null로 설정됨');
-    console.error('  - 원본 데이터 확인 및 파싱 로직 점검 필요');
+    logger.error('DEADLINE_EXTRACTION_FAILED - deadline 추출 실패', {
+      reason: 'null로 설정됨',
+      action: '원본 데이터 확인 및 파싱 로직 점검 필요'
+    });
   }
   
   // 마감일이 있는 경우에만 시간 설정 (더 정확한 마감시간)
@@ -358,7 +360,7 @@ function calculateDates(deadline: Date | null, crawledAt?: Date): { startDate: D
 
   // 날짜 유효성 최종 검증 (endDate가 null이면 스킵)
   if (isNaN(startDate.getTime()) || (endDate && isNaN(endDate.getTime()))) {
-    console.error('🚨 날짜 계산 실패, 강제 기본값 적용');
+    logger.error('날짜 계산 실패, 강제 기본값 적용');
     const defaultStart = new Date(baseTime.getTime() - 2 * 24 * 60 * 60 * 1000); // 2일 전
     const defaultEnd = new Date(baseTime.getTime() + 7 * 24 * 60 * 60 * 1000); // 7일 후
     defaultEnd.setHours(23, 59, 59, 999);
@@ -368,7 +370,7 @@ function calculateDates(deadline: Date | null, crawledAt?: Date): { startDate: D
   // 시작일이 마감일보다 늦지 않도록 보장 (마감일이 있는 경우에만)
   if (endDate && startDate >= endDate) {
     const correctedStart = new Date(endDate.getTime() - 2 * 24 * 60 * 60 * 1000);
-    console.warn('⚠️ 시작일이 마감일보다 늦음, 자동 수정');
+    logger.warn('시작일이 마감일보다 늦음, 자동 수정');
     return { startDate: correctedStart, endDate };
   }
 
@@ -393,7 +395,10 @@ export function convertRawDataToCampaigns(rawData: RawCampaignData[]): Campaign[
       startDate = result.startDate;
       endDate = result.endDate;
     } catch (error) {
-      console.error(`🚨 calculateDates 에러 (캠페인 ${index}):`, error);
+      logger.error(`calculateDates 에러`, { 
+        campaign_index: index, 
+        error: error instanceof Error ? error.message : String(error) 
+      });
       // 에러 발생 시 기본값 설정
       const now = new Date();
       startDate = new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000); // 2일 전
@@ -422,7 +427,7 @@ export function convertRawDataToCampaigns(rawData: RawCampaignData[]): Campaign[
     const source = sourceMap[raw.source_site];
     
     if (!source) {
-      console.warn(`🚨 알 수 없는 소스 사이트: "${raw.source_site}" → reviewtiful로 매핑`);
+      logger.warn('알 수 없는 소스 사이트, reviewtiful로 매핑', { source_site: raw.source_site });
       // 기본값으로 reviewtiful 설정하지 않고 실제 소스를 보존
     }
     
@@ -475,7 +480,11 @@ export function convertRawDataToCampaigns(rawData: RawCampaignData[]): Campaign[
     };
     
     } catch (error) {
-      console.error(`❌ 캠페인 ${index + 1} 처리 실패 (${raw.title}):`, error);
+      logger.error('캠페인 처리 실패', { 
+        campaign_index: index + 1, 
+        title: raw.title, 
+        error: error instanceof Error ? error.message : String(error) 
+      });
       return null;
     }
   });

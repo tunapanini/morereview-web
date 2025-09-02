@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { exec } from 'child_process';
 import { promisify } from 'util';
+import { logger } from '@/utils/logger';
 
 const execAsync = promisify(exec);
 
@@ -18,13 +19,13 @@ export async function GET(request: NextRequest) {
   const startTime = Date.now();
   const timestamp = new Date().toISOString();
   
-  console.warn(`[${timestamp}] Python 스크래핑 Cron 작업 시작`);
+  logger.info(`Python 스크래핑 Cron 작업 시작`, { timestamp });
 
   try {
     // Python 스크래핑 실행
     const command = 'cd scraping && python main.py all --json';
     
-    console.warn(`실행 명령: ${command}`);
+    logger.info(`실행 명령: ${command}`);
     
     const { stdout, stderr } = await execAsync(command, {
       timeout: 8 * 60 * 1000, // 8분 타임아웃 (Vercel 10분 제한 고려)
@@ -44,7 +45,9 @@ export async function GET(request: NextRequest) {
         throw new Error('JSON 출력을 찾을 수 없습니다');
       }
     } catch (parseError) {
-      console.warn('JSON 파싱 실패, 원본 출력 사용:', parseError);
+      logger.warn('JSON 파싱 실패, 원본 출력 사용', { 
+        parseError: parseError instanceof Error ? parseError.message : String(parseError) 
+      });
       result = {
         success: true,
         raw_output: stdout,
@@ -53,16 +56,15 @@ export async function GET(request: NextRequest) {
     }
 
     // 성공 로그
-    console.warn(`[${timestamp}] Python 스크래핑 완료 (${duration}ms)`);
-    if (result.summary) {
-      console.warn(`  - 소스: ${result.summary.successful_sources}/${result.summary.total_sources}`);
-      console.warn(`  - 캠페인: ${result.summary.total_campaigns}개`);
-      console.warn(`  - 저장: ${result.summary.total_saved}개`);
-    }
-
+    logger.info(`Python 스크래핑 완료`, { 
+      timestamp, 
+      duration_ms: duration,
+      summary: result.summary 
+    });
+    
     // stderr 경고 처리
     if (stderr) {
-      console.warn('Python stderr:', stderr);
+      logger.warn('Python stderr 출력', { stderr });
     }
 
     return NextResponse.json({
@@ -77,7 +79,11 @@ export async function GET(request: NextRequest) {
     const duration = Date.now() - startTime;
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     
-    console.error(`[${timestamp}] Python 스크래핑 실패 (${duration}ms):`, errorMessage);
+    logger.error(`Python 스크래핑 실패`, { 
+      timestamp, 
+      duration_ms: duration, 
+      error: errorMessage 
+    });
     
     // 타임아웃 에러 특별 처리
     if (errorMessage.includes('timeout')) {
@@ -110,7 +116,7 @@ export async function POST(request: NextRequest) {
   const startTime = Date.now();
   const timestamp = new Date().toISOString();
   
-  console.warn(`[${timestamp}] 수동 Python 스크래핑 시작 (소스: ${sources})`);
+  logger.info(`수동 Python 스크래핑 시작`, { timestamp, sources });
 
   try {
     const command = `cd scraping && python main.py ${sources} --json`;
@@ -130,7 +136,7 @@ export async function POST(request: NextRequest) {
       result = { raw_output: stdout };
     }
 
-    console.warn(`[${timestamp}] 수동 스크래핑 완료 (${duration}ms)`);
+    logger.info(`수동 스크래핑 완료`, { timestamp, duration_ms: duration, sources });
 
     return NextResponse.json({
       success: true,
@@ -145,7 +151,12 @@ export async function POST(request: NextRequest) {
     const duration = Date.now() - startTime;
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     
-    console.error(`[${timestamp}] 수동 스크래핑 실패 (${duration}ms):`, errorMessage);
+    logger.error(`수동 스크래핑 실패`, { 
+      timestamp, 
+      duration_ms: duration, 
+      sources,
+      error: errorMessage 
+    });
     
     return NextResponse.json({
       success: false,
