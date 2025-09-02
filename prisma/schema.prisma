@@ -15,7 +15,6 @@ model Campaign {
   description         String?
   thumbnailImage      String?         @map("thumbnail_image")
   detailUrl           String?         @map("detail_url")
-  remainingDays       Int?            @map("remaining_days")
   applicationsCurrent Int?            @default(0) @map("applications_current")
   applicationsTotal   Int?            @default(0) @map("applications_total")
   rewardPoints        Int?            @default(0) @map("reward_points")
@@ -36,7 +35,6 @@ model Campaign {
   @@index([createdAt(sort: Desc)], map: "idx_campaigns_created_at")
   @@index([is_hidden, is_invalid], map: "idx_campaigns_data_quality")
   @@index([deadline], map: "idx_campaigns_deadline")
-  @@index([remainingDays], map: "idx_campaigns_remaining_days")
   @@index([sourceSite], map: "idx_campaigns_source_site")
   @@map("campaigns")
 }

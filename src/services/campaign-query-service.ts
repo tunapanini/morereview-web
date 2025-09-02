@@ -58,7 +58,7 @@ export class CampaignQueryService {
     // 📊 필요한 컬럼만 선택하여 네트워크 부하 감소
     const selectedColumns = [
       'id', 'source_site', 'campaign_id', 'title', 'description',
-      'thumbnail_image', 'detail_url', 'remaining_days', 'applications_current',
+      'thumbnail_image', 'detail_url', 'applications_current',
       'applications_total', 'reward_points', 'category', 'location_type',
       'channels', 'extracted_at', 'created_at', 'deadline'
     ].join(', ');
@@ -86,10 +86,9 @@ export class CampaignQueryService {
         .order('created_at', { ascending: sortOrder === 'asc' })
         .order('id', { ascending: sortOrder === 'asc' }); // 동일 시간대 정렬 보장
     } else if (sortBy === 'deadline') {
-      // 복합 인덱스 (is_hidden, is_invalid, deadline DESC, remaining_days DESC, id DESC) 활용
+      // 복합 인덱스 (is_hidden, is_invalid, deadline DESC, id DESC) 활용
       query = query
         .order('deadline', { ascending: sortOrder === 'asc', nullsFirst: false })
-        .order('remaining_days', { ascending: sortOrder === 'asc', nullsFirst: false })
         .order('id', { ascending: false }); // 보조 정렬
     } else if (sortBy === 'reward') {
       query = query

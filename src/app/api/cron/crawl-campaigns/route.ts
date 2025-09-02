@@ -3,7 +3,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { withCronAuth } from '@/middleware/cron-auth';
 import { SimpleCrawler } from '@/services/simple-crawler';
-import { pythonCrawler } from '@/services/python-crawler';
+import { pythonScraper } from '@/services/python-crawler';
 // import { delay } from '@/utils/simple-http';
 
 async function cronHandler(request: NextRequest): Promise<NextResponse> {
@@ -35,8 +35,8 @@ async function cronHandler(request: NextRequest): Promise<NextResponse> {
     // TODO: node.js 로직 삭제 후, python으로만 로직 처리
     if (usePython) {
       // 🐍 Python 크롤링 시스템 사용
-      console.log('🐍 Python 크롤링 모드 활성화');
-      const pythonResult = await pythonCrawler.crawlWithSave();
+      console.warn('🐍 Python 크롤링 모드 활성화');
+      const pythonResult = await pythonScraper.scrapeWithSave();
       
       results = [{
         source: 'python-reviewplace',

@@ -39,7 +39,6 @@ export interface Database {
           description: string | null
           thumbnail_image: string | null
           detail_url: string | null
-          remaining_days: number | null
           applications_current: number
           applications_total: number
           reward_points: number
@@ -59,7 +58,6 @@ export interface Database {
           description?: string | null
           thumbnail_image?: string | null
           detail_url?: string | null
-          remaining_days?: number | null
           applications_current?: number
           applications_total?: number
           reward_points?: number
@@ -79,7 +77,6 @@ export interface Database {
           description?: string | null
           thumbnail_image?: string | null
           detail_url?: string | null
-          remaining_days?: number | null
           applications_current?: number
           applications_total?: number
           reward_points?: number

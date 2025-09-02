@@ -4,8 +4,7 @@ import * as cheerio from 'cheerio';
 import { fetchHTML } from '@/utils/simple-http';
 
 export interface DateInfo {
-  remainingDays: number;
-  deadline?: Date; // 실제 마감일
+  deadline: Date; // 실제 마감일
   method: 'listPage' | 'detailPage' | 'fallback';
   source: string;
 }
@@ -28,7 +27,8 @@ export class UniversalDateExtractor {
       if (detailUrl) {
         const detailPageResult = await this.extractFromDetailPage(source, detailUrl);
         if (detailPageResult) {
-          return `D-${detailPageResult.remainingDays}`;
+          const remainingDays = Math.ceil((detailPageResult.deadline.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+          return `D-${Math.max(0, remainingDays)}`;
         }
       }
 
@@ -128,12 +128,7 @@ export class UniversalDateExtractor {
           // 실제 마감일 추출 시도
           const actualDeadline = this.extractActualDateFromText(text);
           if (actualDeadline) {
-            const now = new Date();
-            const diffTime = actualDeadline.getTime() - now.getTime();
-            const remainingDays = Math.max(0, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
-            
             return {
-              remainingDays,
               deadline: actualDeadline,
               method: 'detailPage',
               source
@@ -147,7 +142,6 @@ export class UniversalDateExtractor {
             if (days > 0) {
               const calculatedDeadline = new Date(Date.now() + days * 24 * 60 * 60 * 1000);
               return {
-                remainingDays: days,
                 deadline: calculatedDeadline,
                 method: 'detailPage',
                 source

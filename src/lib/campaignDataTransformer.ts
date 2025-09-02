@@ -9,13 +9,13 @@ interface RawCampaignData {
   description: string;
   thumbnail_image: string;
   detail_url: string;
-  remaining_days: number | null;
   applications_current: number;
   applications_total: number;
   reward_points: number;
   category: string;
   channels: string[];
   created_at?: string; // 크롤링 시점
+  deadline?: Date | null; // 실제 마감일
 }
 
 // 카테고리 매핑 함수
@@ -329,37 +329,29 @@ function determineVisitType(title: string, description: string, location?: strin
   }
 }
 
-// 🚨 개선된 날짜 계산 함수 (고정된 마감일 계산)
-function calculateDates(remainingDays: number | null, crawledAt?: Date) {
-  // 크롤링 시점을 기준으로 고정된 마감일 계산 (시간이 지나도 변하지 않음)
+// 🚨 deadline 기반 날짜 계산 함수 (remaining_days 제거)
+function calculateDates(deadline: Date | null, crawledAt?: Date) {
+  // deadline 기반 날짜 계산 (시간이 지나도 변하지 않음)
   const baseTime = crawledAt || new Date();
   
-  // 🚨 핵심: remaining_days null 체크 강화
-  let actualRemainingDays = remainingDays;
+  // deadline이 있으면 사용, 없으면 기본값 7일 후로 설정
+  let actualDeadline: Date;
   
-  if (actualRemainingDays === null || actualRemainingDays === undefined) {
-    console.warn('⚠️ remaining_days가 null, 기본값 7일 적용');
-    actualRemainingDays = 7;
+  if (deadline && !isNaN(deadline.getTime())) {
+    actualDeadline = new Date(deadline);
+  } else {
+    console.warn('⚠️ deadline이 null 또는 invalid, 기본값 7일 후로 설정');
+    actualDeadline = new Date(baseTime.getTime() + 7 * 24 * 60 * 60 * 1000);
   }
   
-  if (actualRemainingDays <= 0) {
-    console.warn(`⚠️ remaining_days가 0 이하 (${actualRemainingDays}), 기본값 3일 적용`);
-    actualRemainingDays = 3;
-  }
-  
-  if (actualRemainingDays > 365) {
-    console.warn(`⚠️ remaining_days가 과도하게 큼 (${actualRemainingDays}), 30일로 제한`);
-    actualRemainingDays = 30;
-  }
+  // 마감일을 해당일 23:59:59로 설정 (더 정확한 마감시간)
+  actualDeadline.setHours(23, 59, 59, 999);
 
   // 시작일은 크롤링 시점 기준으로 과거 1-3일 사이 랜덤
   const startDate = new Date(baseTime.getTime() - (Math.random() * 2 + 1) * 24 * 60 * 60 * 1000);
   
-  // ⭐️ 핵심: 마감일은 크롤링 시점 + remaining_days로 고정 (시간이 지나도 변하지 않음)
-  const endDate = new Date(baseTime.getTime() + actualRemainingDays * 24 * 60 * 60 * 1000);
-  
-  // 마감일을 해당일 23:59:59로 설정 (더 정확한 마감시간)
-  endDate.setHours(23, 59, 59, 999);
+  // endDate는 actualDeadline과 동일
+  const endDate = actualDeadline;
 
   // 날짜 유효성 최종 검증
   if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
@@ -389,7 +381,7 @@ export function convertRawDataToCampaigns(rawData: RawCampaignData[]): Campaign[
     const platforms = mapToPlatforms(raw.channels, raw.title);
     // 크롤링 시점 (created_at)을 기준으로 고정된 마감일 계산
     const crawledAt = raw.created_at ? new Date(raw.created_at) : new Date();
-    const { startDate, endDate } = calculateDates(raw.remaining_days, crawledAt);
+    const { startDate, endDate } = calculateDates(raw.deadline || null, crawledAt);
 
     // 위치 정보 추출 및 방문 유형 결정
     const location = extractLocation(raw.title, raw.description);
@@ -425,9 +417,9 @@ export function convertRawDataToCampaigns(rawData: RawCampaignData[]): Campaign[
       return null; // 유효하지 않은 캠페인은 제외
     }
     
-    // remaining_days null 체크 (이 시점에서도 재확인)
-    if (raw.remaining_days === null) {
-      logger.dev(`remaining_days null 발견 (캠페인 ${index}): ${cleanedTitle.substring(0, 30)}... - 기본값 적용됨`);
+    // deadline null 체크 (이 시점에서도 재확인)
+    if (!raw.deadline) {
+      logger.dev(`deadline null 발견 (캠페인 ${index}): ${cleanedTitle.substring(0, 30)}... - 기본값이 적용됨`);
     }
 
     return {

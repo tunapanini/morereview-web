@@ -30,7 +30,6 @@ export interface DateInfo {
   recruitmentEnd: Date;
   reviewStart?: Date;
   reviewEnd?: Date;
-  remainingDays: number;
 }
 
 // 데이터 검증 결과
@@ -49,7 +48,6 @@ export interface CampaignForDB {
   title: string;
   description?: string;
   reward_points: number;
-  remaining_days: number; // 하위 호환성을 위해 유지
   deadline?: Date; // 실제 마감일
   detail_url?: string;
   applications_current: number;

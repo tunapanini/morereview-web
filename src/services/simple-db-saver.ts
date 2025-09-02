@@ -15,9 +15,7 @@ export class SimpleDBSaver {
 
 
     // Supabase 저장용 데이터 변환 (null 방지)
-    let campaignsToSave: CampaignForDB[] = campaigns.map((campaign, index) => {
-      const remainingDays = this.parseDaysWithFallback(campaign.deadline, index);
-      
+    let campaignsToSave: CampaignForDB[] = campaigns.map((campaign) => {
       // 자동 데이터 품질 검증
       const isInvalid = DataValidator.isInvalidCampaign(campaign.title);
       
@@ -27,7 +25,6 @@ export class SimpleDBSaver {
         title: campaign.title,
         description: campaign.description,
         reward_points: campaign.reward,
-        remaining_days: remainingDays, // 하위 호환성을 위해 유지
         deadline: campaign.deadlineDate, // 실제 마감일
         detail_url: campaign.detailUrl || '',
         applications_current: 0,
@@ -189,17 +186,10 @@ export class SimpleDBSaver {
     const seenIds = new Set<string>();
     
     campaigns.forEach((campaign, index) => {
-      // 기본 검증
-      if (campaign.remaining_days === null || campaign.remaining_days === undefined) {
-        console.error(`🚨 CRITICAL: remaining_days가 null (캠페인 ${index})`);
-        campaign.remaining_days = 7; // 강제 수정
-        issues++;
-      }
-      
-      if (campaign.remaining_days <= 0) {
-        console.warn(`⚠️ remaining_days가 0 이하 (캠페인 ${index}): ${campaign.remaining_days}`);
-        campaign.remaining_days = 1; // 최소 1일로 수정
-        issues++;
+      // 기본 검증 (deadline 기반)
+      if (!campaign.deadline) {
+        console.warn(`⚠️ deadline이 null (캠페인 ${index}): 기본값이 적용됨`);
+        // deadline은 데이터 변환 과정에서 자동으로 설정됨
       }
       
       if (!campaign.title || campaign.title.trim().length === 0) {

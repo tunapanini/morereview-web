@@ -173,8 +173,7 @@ export class ReviewPlaceExtractor extends BaseDateExtractor {
       console.log(`✅ 모집기간 추출 성공 (우선 적용): ${recruitmentMatch[0]}, 남은 일수: ${remainingDays}`);
       
       return {
-        recruitmentEnd,
-        remainingDays
+        recruitmentEnd
       };
     }
     
@@ -188,8 +187,7 @@ export class ReviewPlaceExtractor extends BaseDateExtractor {
       console.log(`⚠️ 모집기간 없음, 리뷰기간으로 대체: ${reviewMatch[0]}, 남은 일수: ${remainingDays}`);
       
       return {
-        recruitmentEnd: reviewStart,
-        remainingDays
+        recruitmentEnd: reviewStart
       };
     }
     
@@ -277,11 +275,9 @@ export class ReviewNoteExtractor extends BaseDateExtractor {
           const month = parseInt(match[1], 10);
           const day = parseInt(match[2], 10);
           const targetDate = new Date(this.currentYear, month - 1, day);
-          const remainingDays = this.calculateRemainingDays(targetDate);
           
           return {
-            recruitmentEnd: targetDate,
-            remainingDays
+            recruitmentEnd: targetDate
           };
         }
       }
@@ -359,7 +355,8 @@ export class SafeDateExtractor {
         console.log(`Level 2 시도: ${detailUrl}`);
         const dateInfo = await extractor.extractFromDetailPage(detailUrl);
         if (dateInfo) {
-          deadline = `D-${dateInfo.remainingDays}`;
+          const remainingDays = Math.ceil((dateInfo.recruitmentEnd.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+          deadline = `D-${Math.max(0, remainingDays)}`;
           console.log(`Level 2 추출 성공:`, deadline);
         }
       }
