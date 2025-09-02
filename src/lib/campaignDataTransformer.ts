@@ -330,12 +330,12 @@ function determineVisitType(title: string, description: string, location?: strin
 }
 
 // 🚨 deadline 기반 날짜 계산 함수 (remaining_days 제거)
-function calculateDates(deadline: Date | null, crawledAt?: Date) {
+function calculateDates(deadline: Date | null, crawledAt?: Date): { startDate: Date, endDate: Date | null } {
   // deadline 기반 날짜 계산 (시간이 지나도 변하지 않음)
   const baseTime = crawledAt || new Date();
   
-  // deadline이 있으면 사용, 없으면 기본값 7일 후로 설정
-  let actualDeadline: Date;
+  // deadline이 있으면 사용, 없으면 null로 설정
+  let actualDeadline: Date | null = null;
   
   if (deadline && !isNaN(deadline.getTime())) {
     actualDeadline = new Date(deadline);
@@ -449,7 +449,7 @@ export function convertRawDataToCampaigns(rawData: RawCampaignData[]): Campaign[
       visitType: visitType,
       location: location,
       startDate: startDate,
-      deadline: endDate, // deadline 필드 (null일 수 있음)
+      deadline: endDate || undefined, // deadline 필드 (undefined일 수 있음)
       // 🚨 개선된 상태 계산: ending-soon 상태도 고려 (deadline이 null이면 active 상태)
       status: (() => {
         if (!endDate) {
@@ -471,8 +471,6 @@ export function convertRawDataToCampaigns(rawData: RawCampaignData[]): Campaign[
       source: finalSource,
       sourceUrl: raw.detail_url,
       description: raw.description,
-      participantCount: raw.applications_current || Math.floor(Math.random() * 50) + 10,
-      maxParticipants: raw.applications_total || Math.floor(Math.random() * 30) + 50,
       imageUrl: raw.thumbnail_image || '/images/default-campaign.jpg'
     };
     

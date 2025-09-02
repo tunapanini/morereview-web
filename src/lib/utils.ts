@@ -200,15 +200,15 @@ export function getDaysUntilEnd(endDate: Date | undefined): number {
 
 // 🚨 캠페인 상태 실시간 업데이트 함수 추가
 export function updateCampaignStatus(campaign: Campaign): Campaign {
-  // endDate가 null인 경우(deadline 추출 실패) active 상태로 처리
-  if (!campaign.endDate) {
+  // deadline이 null인 경우(deadline 추출 실패) active 상태로 처리
+  if (!campaign.deadline) {
     return {
       ...campaign,
       status: 'active' as const
     };
   }
   
-  const daysUntilEnd = getDaysUntilEnd(campaign.endDate);
+  const daysUntilEnd = getDaysUntilEnd(campaign.deadline!);
   
   let status: Campaign['status'];
   if (daysUntilEnd <= 0) {
@@ -233,10 +233,10 @@ export function filterActiveCampaigns(campaigns: Campaign[]): Campaign[] {
     .map(updateCampaignStatus) // 상태 실시간 업데이트
     .filter(campaign => {
       const now = new Date();
-      // endDate가 null인 경우(deadline 추출 실패) 활성 상태로 처리
-      const isActive = !campaign.endDate || campaign.endDate > now;
+      // deadline이 null인 경우(deadline 추출 실패) 활성 상태로 처리
+      const isActive = !campaign.deadline || campaign.deadline > now;
       if (!isActive && process.env.NODE_ENV === 'development') {
-        console.warn(`🚨 만료된 캠페인 필터링: ${campaign.title} (마감일: ${campaign.endDate?.toISOString()})`);
+        console.warn(`🚨 만료된 캠페인 필터링: ${campaign.title} (마감일: ${campaign.deadline?.toISOString()})`);
       }
       return isActive;
     });
