@@ -22,7 +22,10 @@ export default function CampaignsPage() {
   // Campaign data state
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [displayCount, setDisplayCount] = useState(20);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalCampaigns, setTotalCampaigns] = useState(0);
   const [autoLoadProgress, setAutoLoadProgress] = useState(0);
   const [isAutoLoading, setIsAutoLoading] = useState(false);
   const autoLoadTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -42,13 +45,21 @@ export default function CampaignsPage() {
 
   // Load real campaign data
   useEffect(() => {
-    async function loadCampaigns() {
+    async function loadCampaigns(resetPage = true) {
       try {
-        setIsLoading(true);
-        const realCampaigns = await loadRealCampaignData(filters.sortBy, filters.sortOrder);
+        if (resetPage) {
+          setIsLoading(true);
+          setCurrentPage(1);
+          setCampaigns([]);
+        } else {
+          setIsLoadingMore(true);
+        }
+
+        const page = resetPage ? 1 : currentPage + 1;
+        const result = await loadRealCampaignData(filters.sortBy, filters.sortOrder, page, 20);
 
         // 추가 유효성 검사
-        const validCampaigns = realCampaigns.filter(campaign =>
+        const validCampaigns = result.campaigns.filter(campaign =>
           campaign &&
           campaign.id &&
           campaign.title &&
@@ -60,27 +71,33 @@ export default function CampaignsPage() {
           !isNaN(campaign.startDate.getTime())
         );
 
-        // 중복 ID 제거
-        const uniqueCampaigns = validCampaigns.reduce((acc, campaign) => {
-          acc.set(campaign.id, campaign);
-          return acc;
-        }, new Map<string, Campaign>());
-
         // 🚨 만료된 캠페인 자동 제외 및 상태 업데이트
-        const activeCampaigns = filterActiveCampaigns(Array.from(uniqueCampaigns.values()));
-        const finalCampaigns = activeCampaigns;
+        const activeCampaigns = filterActiveCampaigns(validCampaigns);
 
-        logger.dev(`Loaded ${finalCampaigns.length} active campaigns out of ${validCampaigns.length} valid campaigns (expired campaigns filtered out)`);
-        setCampaigns(finalCampaigns);
+        logger.dev(`Loaded ${activeCampaigns.length} active campaigns for page ${page} (expired campaigns filtered out)`);
+        
+        if (resetPage) {
+          setCampaigns(activeCampaigns);
+          setCurrentPage(1);
+        } else {
+          setCampaigns(prev => [...prev, ...activeCampaigns]);
+          setCurrentPage(page);
+        }
+        
+        setTotalPages(result.pagination.totalPages);
+        setTotalCampaigns(result.pagination.total);
       } catch (error) {
         logger.error('Failed to load campaigns', error);
-        setCampaigns([]);
+        if (resetPage) {
+          setCampaigns([]);
+        }
       } finally {
         setIsLoading(false);
+        setIsLoadingMore(false);
       }
     }
 
-    loadCampaigns();
+    loadCampaigns(true);
   }, [filters.sortBy, filters.sortOrder]);
 
   // Favorites hook
@@ -90,7 +107,7 @@ export default function CampaignsPage() {
     isCampaignFavorited,
   } = useFavorites();
 
-  // Filter campaigns (정렬은 서버에서 수행)
+  // Filter campaigns (클라이언트 필터링 - 검색, 플랫폼, 방문타입, 지역 등)
   const filteredCampaigns = useMemo(() => {
     try {
       if (!campaigns || campaigns.length === 0) return [];
@@ -108,7 +125,7 @@ export default function CampaignsPage() {
 
       if (validCampaigns.length === 0) return [];
 
-      // 필터링만 수행 (정렬은 서버에서 이미 완료됨)
+      // 클라이언트 필터링만 수행 (정렬은 서버에서 이미 완료됨)
       return filterCampaigns(validCampaigns, filters);
     } catch (error) {
       console.error('Error filtering campaigns:', error);
@@ -116,31 +133,61 @@ export default function CampaignsPage() {
     }
   }, [campaigns, filters]);
 
-  // Display campaigns (limited by displayCount)
-  const displayedCampaigns = useMemo(() => {
-    return filteredCampaigns.slice(0, displayCount);
-  }, [filteredCampaigns, displayCount]);
+  // Display campaigns (모든 로드된 캠페인을 표시)
+  const displayedCampaigns = filteredCampaigns;
 
-  // Check if there are more campaigns to load
-  const hasMoreCampaigns = displayCount < filteredCampaigns.length;
+  // Check if there are more campaigns to load (서버 페이지네이션 기반)
+  const hasMoreCampaigns = currentPage < totalPages;
 
-  // Load more handler
-  const loadMoreCampaigns = useCallback(() => {
-    setDisplayCount(prev => prev + 20);
-    // Reset auto-loading state
-    setIsAutoLoading(false);
-    setAutoLoadProgress(0);
-    if (autoLoadTimerRef.current) {
-      clearTimeout(autoLoadTimerRef.current);
+  // Load more handler (서버에서 다음 페이지 로드)
+  const loadMoreCampaigns = useCallback(async () => {
+    if (!hasMoreCampaigns || isLoadingMore) return;
+
+    try {
+      setIsLoadingMore(true);
+      // Reset auto-loading state
+      setIsAutoLoading(false);
+      setAutoLoadProgress(0);
+      if (autoLoadTimerRef.current) {
+        clearTimeout(autoLoadTimerRef.current);
+      }
+      if (progressIntervalRef.current) {
+        clearInterval(progressIntervalRef.current);
+      }
+
+      const nextPage = currentPage + 1;
+      const result = await loadRealCampaignData(filters.sortBy, filters.sortOrder, nextPage, 20);
+
+      // 추가 유효성 검사
+      const validCampaigns = result.campaigns.filter(campaign =>
+        campaign &&
+        campaign.id &&
+        campaign.title &&
+        campaign.createdDate &&
+        campaign.endDate &&
+        campaign.startDate &&
+        !isNaN(campaign.createdDate.getTime()) &&
+        !isNaN(campaign.endDate.getTime()) &&
+        !isNaN(campaign.startDate.getTime())
+      );
+
+      // 만료된 캠페인 자동 제외
+      const activeCampaigns = filterActiveCampaigns(validCampaigns);
+
+      // 기존 캠페인에 새 캠페인 추가
+      setCampaigns(prev => [...prev, ...activeCampaigns]);
+      setCurrentPage(nextPage);
+
+      logger.dev(`Loaded ${activeCampaigns.length} more campaigns for page ${nextPage}`);
+    } catch (error) {
+      logger.error('Failed to load more campaigns', error);
+    } finally {
+      setIsLoadingMore(false);
     }
-    if (progressIntervalRef.current) {
-      clearInterval(progressIntervalRef.current);
-    }
-  }, []);
+  }, [hasMoreCampaigns, isLoadingMore, currentPage, filters.sortBy, filters.sortOrder]);
 
-  // Reset display count when filters change
+  // Reset when filters change (검색, 플랫폼 등 클라이언트 필터는 리셋하지 않음)
   useEffect(() => {
-    setDisplayCount(20);
     // Reset auto-loading state when filters change
     setIsAutoLoading(false);
     setAutoLoadProgress(0);
@@ -180,16 +227,15 @@ export default function CampaignsPage() {
 
     // Auto-click after N seconds
     autoLoadTimerRef.current = setTimeout(() => {
-      setDisplayCount(prev => prev + 20);
+      loadMoreCampaigns();
       setIsAutoLoading(false);
       setAutoLoadProgress(0);
     }, AUTO_LOAD_DELAY_MS);
-  }, []);
+  }, [loadMoreCampaigns]);
 
   // Intersection Observer to detect when button is visible
   useEffect(() => {
-
-    if (!hasMoreCampaigns) {
+    if (!hasMoreCampaigns || isLoadingMore) {
       setIsAutoLoading(false);
       setAutoLoadProgress(0);
       return;
@@ -204,7 +250,7 @@ export default function CampaignsPage() {
       const observer = new IntersectionObserver(
         (entries) => {
           entries.forEach((entry) => {
-            if (entry.isIntersecting && hasMoreCampaigns && !isAutoLoading) {
+            if (entry.isIntersecting && hasMoreCampaigns && !isAutoLoading && !isLoadingMore) {
               startAutoLoadTimer();
             }
           });
@@ -229,14 +275,12 @@ export default function CampaignsPage() {
     return () => {
       clearTimeout(timer);
     };
-  }, [hasMoreCampaigns, startAutoLoadTimer, displayCount, isAutoLoading]);
-
+  }, [hasMoreCampaigns, startAutoLoadTimer, isAutoLoading, isLoadingMore]);
 
   // Update search query (currently disabled)
   // const handleSearchChange = useCallback((searchQuery: string) => {
   //   setFilters(prev => ({ ...prev, searchQuery }));
   // }, []);
-
 
   // Toggle platform filter
   const handlePlatformToggle = useCallback((platform: CampaignPlatform) => {
@@ -274,7 +318,6 @@ export default function CampaignsPage() {
       subRegionCode,
     }));
   }, []);
-
 
   // Handle sort change
   const handleSortChange = useCallback((sortBy: CampaignFilters['sortBy'], sortOrder: CampaignFilters['sortOrder']) => {
@@ -346,13 +389,10 @@ export default function CampaignsPage() {
             캠페인 목록
           </h2>
           <span className="body-sm text-gray-500">
-            {isLoading ? '로딩 중...' : `${displayedCampaigns.length}/${filteredCampaigns.length}개 표시`}
+            {isLoading ? '로딩 중...' : `${displayedCampaigns.length}/${totalCampaigns}개 표시`}
           </span>
         </div>
-
-
       </div>
-
 
       {/* Loading State */}
       {isLoading ? (
@@ -374,17 +414,18 @@ export default function CampaignsPage() {
                   <button
                     ref={loadMoreButtonRef}
                     onClick={loadMoreCampaigns}
-                    className="relative overflow-hidden bg-primary-600 text-white px-8 py-3 rounded-lg hover:bg-primary-700 transition-colors body-md hover-lift"
+                    disabled={isLoadingMore}
+                    className="relative overflow-hidden bg-primary-600 text-white px-8 py-3 rounded-lg hover:bg-primary-700 transition-colors body-md hover-lift disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {/* Progress bar background */}
-                    {isAutoLoading && (
+                    {isAutoLoading && !isLoadingMore && (
                       <div
                         className="absolute inset-0 bg-primary-800 rounded-lg transition-all duration-100 ease-linear"
                         style={{ width: `${autoLoadProgress}%` }}
                       />
                     )}
                     <span className="relative z-10">
-                      더보기 ({filteredCampaigns.length - displayedCampaigns.length}개 남음)
+                      {isLoadingMore ? '로딩 중...' : `더보기 (${totalCampaigns - displayedCampaigns.length}개 남음)`}
                     </span>
                   </button>
                 </div>

@@ -39,7 +39,9 @@ export default function FavoritesPage() {
   const [allCampaigns, setAllCampaigns] = useState<Campaign[]>([]);
 
   useEffect(() => {
-    loadRealCampaignData().then(setAllCampaigns);
+    loadRealCampaignData().then(result => {
+      setAllCampaigns(result.campaigns);
+    });
   }, []);
 
   const favoriteCampaigns = useMemo(() => {

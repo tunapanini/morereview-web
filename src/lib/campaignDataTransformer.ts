@@ -459,61 +459,48 @@ export function convertRawDataToCampaigns(rawData: RawCampaignData[]): Campaign[
 }
 
 // 실제 크롤링 데이터 로드 (Supabase API에서)
-export async function loadRealCampaignData(sortBy: CampaignSortBy = 'latest', sortOrder: CampaignSortOrder = 'desc'): Promise<Campaign[]> {
+export async function loadRealCampaignData(
+  sortBy: CampaignSortBy = 'latest', 
+  sortOrder: CampaignSortOrder = 'desc',
+  page: number = 1,
+  limit: number = 20
+): Promise<{ campaigns: Campaign[], pagination: { page: number, totalPages: number, total: number } }> {
   try {
-    // 🚀 성능 최적화: 스트리밍과 청크 처리로 메모리 효율성 개선
-    const batchSize = 200; // 배치 크기 제한으로 메모리 사용량 조절
-    let page = 1;
-    const allCampaigns: Campaign[] = [];
-    let hasMore = true;
-
-    while (hasMore && page <= 10) { // 최대 10페이지 (2000개)로 제한
-      const response = await fetch(
-        `/api/campaigns?page=${page}&limit=${batchSize}&sortBy=${sortBy}&sortOrder=${sortOrder}`,
-        {
-          // ⚡ 성능 최적화: 압축 활성화
-          headers: {
-            'Accept': 'application/json',
-            'Accept-Encoding': 'gzip, deflate, br'
-          }
+    // 🚀 성능 최적화: 서버 페이지네이션 사용으로 필요한 데이터만 로드
+    const response = await fetch(
+      `/api/campaigns?page=${page}&limit=${limit}&sortBy=${sortBy}&sortOrder=${sortOrder}`,
+      {
+        // ⚡ 성능 최적화: 압축 활성화
+        headers: {
+          'Accept': 'application/json',
+          'Accept-Encoding': 'gzip, deflate, br'
         }
-      );
-      
-      if (!response.ok) {
-        throw new Error(`Failed to load campaign data: ${response.status}`);
       }
-
-      const result = await response.json();
-      const rawData: RawCampaignData[] = result.data || [];
-
-      if (!Array.isArray(rawData) || rawData.length === 0) {
-        hasMore = false;
-        break;
-      }
-
-      // 📊 배치 단위로 데이터 변환하여 메모리 효율성 향상
-      const batchCampaigns = convertRawDataToCampaigns(rawData);
-      const validBatchCampaigns = batchCampaigns.filter(campaign => {
-        return campaign?.id &&
-          campaign.title &&
-          campaign.createdDate &&
-          campaign.endDate &&
-          campaign.startDate &&
-          !isNaN(campaign.createdDate.getTime()) &&
-          !isNaN(campaign.endDate.getTime()) &&
-          !isNaN(campaign.startDate.getTime());
-      });
-
-      allCampaigns.push(...validBatchCampaigns);
-
-      // 🔄 페이지네이션 체크
-      hasMore = result.pagination.page < result.pagination.totalPages;
-      page++;
+    );
+    
+    if (!response.ok) {
+      throw new Error(`Failed to load campaign data: ${response.status}`);
     }
+
+    const result = await response.json();
+    const rawData: RawCampaignData[] = result.data || [];
+
+    // 📊 데이터 변환
+    const campaigns = convertRawDataToCampaigns(rawData);
+    const validCampaigns = campaigns.filter(campaign => {
+      return campaign?.id &&
+        campaign.title &&
+        campaign.createdDate &&
+        campaign.endDate &&
+        campaign.startDate &&
+        !isNaN(campaign.createdDate.getTime()) &&
+        !isNaN(campaign.endDate.getTime()) &&
+        !isNaN(campaign.startDate.getTime());
+    });
 
     // 🎯 중복 제거 최적화: Map 기반 중복 제거
     const uniqueCampaigns = new Map<string, Campaign>();
-    for (const campaign of allCampaigns) {
+    for (const campaign of validCampaigns) {
       if (!uniqueCampaigns.has(campaign.id)) {
         uniqueCampaigns.set(campaign.id, campaign);
       }
@@ -521,11 +508,25 @@ export async function loadRealCampaignData(sortBy: CampaignSortBy = 'latest', so
 
     const finalCampaigns = Array.from(uniqueCampaigns.values());
 
-    logger.dev(`⚡ 성능 최적화 완료: ${finalCampaigns.length} 캠페인 로드 (${page - 1} 배치 처리)`);
+    logger.dev(`⚡ 서버 페이지네이션: ${finalCampaigns.length} 캠페인 로드 (페이지 ${page}/${result.pagination.totalPages})`);
 
-    return finalCampaigns;
+    return {
+      campaigns: finalCampaigns,
+      pagination: {
+        page: result.pagination.page,
+        totalPages: result.pagination.totalPages,
+        total: result.pagination.total
+      }
+    };
   } catch (error) {
     logger.error('Error loading real campaign data', error);
-    return [];
+    return {
+      campaigns: [],
+      pagination: {
+        page: 1,
+        totalPages: 1,
+        total: 0
+      }
+    };
   }
 }
