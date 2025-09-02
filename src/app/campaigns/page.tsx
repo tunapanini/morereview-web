@@ -44,61 +44,61 @@ export default function CampaignsPage() {
   });
 
   // Load real campaign data
-  useEffect(() => {
-    async function loadCampaigns(resetPage = true) {
-      try {
-        if (resetPage) {
-          setIsLoading(true);
-          setCurrentPage(1);
-          setCampaigns([]);
-        } else {
-          setIsLoadingMore(true);
-        }
-
-        const page = resetPage ? 1 : currentPage + 1;
-        const result = await loadRealCampaignData(filters.sortBy, filters.sortOrder, page, 20);
-
-        // 추가 유효성 검사
-        const validCampaigns = result.campaigns.filter(campaign =>
-          campaign &&
-          campaign.id &&
-          campaign.title &&
-          campaign.createdDate &&
-          campaign.endDate &&
-          campaign.startDate &&
-          !isNaN(campaign.createdDate.getTime()) &&
-          !isNaN(campaign.endDate.getTime()) &&
-          !isNaN(campaign.startDate.getTime())
-        );
-
-        // 🚨 만료된 캠페인 자동 제외 및 상태 업데이트
-        const activeCampaigns = filterActiveCampaigns(validCampaigns);
-
-        logger.dev(`Loaded ${activeCampaigns.length} active campaigns for page ${page} (expired campaigns filtered out)`);
-        
-        if (resetPage) {
-          setCampaigns(activeCampaigns);
-          setCurrentPage(1);
-        } else {
-          setCampaigns(prev => [...prev, ...activeCampaigns]);
-          setCurrentPage(page);
-        }
-        
-        setTotalPages(result.pagination.totalPages);
-        setTotalCampaigns(result.pagination.total);
-      } catch (error) {
-        logger.error('Failed to load campaigns', error);
-        if (resetPage) {
-          setCampaigns([]);
-        }
-      } finally {
-        setIsLoading(false);
-        setIsLoadingMore(false);
+  const loadCampaigns = useCallback(async (resetPage = true) => {
+    try {
+      if (resetPage) {
+        setIsLoading(true);
+        setCurrentPage(1);
+        setCampaigns([]);
+      } else {
+        setIsLoadingMore(true);
       }
-    }
 
+      const page = resetPage ? 1 : currentPage + 1;
+      const result = await loadRealCampaignData(filters.sortBy, filters.sortOrder, page, 20);
+
+      // 추가 유효성 검사 (endDate는 null 허용)
+      const validCampaigns = result.campaigns.filter(campaign =>
+        campaign &&
+        campaign.id &&
+        campaign.title &&
+        campaign.createdDate &&
+        campaign.startDate &&
+        !isNaN(campaign.createdDate.getTime()) &&
+        !isNaN(campaign.startDate.getTime()) &&
+        // endDate가 존재하는 경우에만 유효성 검사
+        (!campaign.endDate || !isNaN(campaign.endDate.getTime()))
+      );
+
+      // 🚨 만료된 캠페인 자동 제외 및 상태 업데이트
+      const activeCampaigns = filterActiveCampaigns(validCampaigns);
+
+      logger.dev(`Loaded ${activeCampaigns.length} active campaigns for page ${page} (expired campaigns filtered out)`);
+      
+      if (resetPage) {
+        setCampaigns(activeCampaigns);
+        setCurrentPage(1);
+      } else {
+        setCampaigns(prev => [...prev, ...activeCampaigns]);
+        setCurrentPage(page);
+      }
+      
+      setTotalPages(result.pagination.totalPages);
+      setTotalCampaigns(result.pagination.total);
+    } catch (error) {
+      logger.error('Failed to load campaigns', error);
+      if (resetPage) {
+        setCampaigns([]);
+      }
+    } finally {
+      setIsLoading(false);
+      setIsLoadingMore(false);
+    }
+  }, [currentPage, filters.sortBy, filters.sortOrder]);
+
+  useEffect(() => {
     loadCampaigns(true);
-  }, [filters.sortBy, filters.sortOrder]);
+  }, [loadCampaigns, filters.sortBy, filters.sortOrder]);
 
   // Favorites hook
   const {
@@ -112,15 +112,15 @@ export default function CampaignsPage() {
     try {
       if (!campaigns || campaigns.length === 0) return [];
 
-      // Filter out campaigns with invalid dates
+      // Filter out campaigns with invalid dates (endDate는 null 허용)
       const validCampaigns = campaigns.filter(campaign =>
         campaign &&
         campaign.createdDate &&
-        campaign.endDate &&
         campaign.startDate &&
         !isNaN(campaign.createdDate.getTime()) &&
-        !isNaN(campaign.endDate.getTime()) &&
-        !isNaN(campaign.startDate.getTime())
+        !isNaN(campaign.startDate.getTime()) &&
+        // endDate가 존재하는 경우에만 유효성 검사
+        (!campaign.endDate || !isNaN(campaign.endDate.getTime()))
       );
 
       if (validCampaigns.length === 0) return [];
@@ -158,17 +158,17 @@ export default function CampaignsPage() {
       const nextPage = currentPage + 1;
       const result = await loadRealCampaignData(filters.sortBy, filters.sortOrder, nextPage, 20);
 
-      // 추가 유효성 검사
+      // 추가 유효성 검사 (endDate는 null 허용)
       const validCampaigns = result.campaigns.filter(campaign =>
         campaign &&
         campaign.id &&
         campaign.title &&
         campaign.createdDate &&
-        campaign.endDate &&
         campaign.startDate &&
         !isNaN(campaign.createdDate.getTime()) &&
-        !isNaN(campaign.endDate.getTime()) &&
-        !isNaN(campaign.startDate.getTime())
+        !isNaN(campaign.startDate.getTime()) &&
+        // endDate가 존재하는 경우에만 유효성 검사
+        (!campaign.endDate || !isNaN(campaign.endDate.getTime()))
       );
 
       // 만료된 캠페인 자동 제외

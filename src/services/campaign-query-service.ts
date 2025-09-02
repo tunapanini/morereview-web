@@ -88,7 +88,7 @@ export class CampaignQueryService {
     } else if (sortBy === 'deadline') {
       // 복합 인덱스 (is_hidden, is_invalid, deadline DESC, id DESC) 활용
       query = query
-        .order('deadline', { ascending: sortOrder === 'asc', nullsFirst: false })
+        .order('deadline', { ascending: sortOrder === 'asc', nullsFirst: true })
         .order('id', { ascending: false }); // 보조 정렬
     } else if (sortBy === 'reward') {
       query = query

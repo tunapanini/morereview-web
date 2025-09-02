@@ -5,7 +5,7 @@
       "schedule": "0 2 * * *"
     },
     {
-      "path": "/api/cron/crawl-campaigns",
+      "path": "/api/cron/python-scrape",
       "schedule": "0 9 * * *"
     }
   ],

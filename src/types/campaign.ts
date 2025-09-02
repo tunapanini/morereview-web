@@ -42,7 +42,7 @@ export interface Campaign {
     description: string;
   }[];
   startDate: Date;
-  endDate: Date;
+  deadline?: Date;
   status: CampaignStatus;
   createdDate: Date; // 등록일 추가
   source: CampaignSource; // 캠페인 소스 추가

@@ -40,7 +40,7 @@ export const tableLabels = {
     campaignInfo: '캠페인 정보',
     platform: '플랫폼',
     reward: '제공내역', // 보상금액 -> 제공내역으로 변경
-    endDate: '마감일',
+    endDate: '신청마감일',
   },
   mobile: {
     daysLeft: '일 남음',
@@ -53,6 +53,6 @@ export const tableLabels = {
 // 정렬 옵션 라벨
 export const sortLabels = {
   latest: '최신순',
-  deadline: '마감 임박순',
+  deadline: '신청마감 임박순',
   reward: '제공내역순', // 보상금액 -> 제공내역으로 변경
 } as const;

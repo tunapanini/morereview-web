@@ -14,11 +14,11 @@ export const platformColors: Record<CampaignPlatform, string> = {
 export function filterCampaigns(campaigns: Campaign[], filters: CampaignFilters): Campaign[] {
   let filtered = [...campaigns];
 
-  // 🚨 마감일 필터링 추가: 만료된 캠페인 자동 제외
+  // 🚨 마감일 필터링 추가: 만료된 캠페인 자동 제외 (endDate가 null이면 활성 상태로 처리)
   const now = new Date();
   filtered = filtered.filter((campaign) => {
-    // endDate가 현재 시간보다 이후인 캠페인만 표시 (만료되지 않은 캠페인)
-    return campaign.endDate && campaign.endDate > now;
+    // endDate가 null이면 활성 상태로 처리, 있으면 현재 시간보다 이후인지 확인
+    return !campaign.endDate || campaign.endDate > now;
   });
 
   // Search query filter
@@ -200,6 +200,14 @@ export function getDaysUntilEnd(endDate: Date | undefined): number {
 
 // 🚨 캠페인 상태 실시간 업데이트 함수 추가
 export function updateCampaignStatus(campaign: Campaign): Campaign {
+  // endDate가 null인 경우(deadline 추출 실패) active 상태로 처리
+  if (!campaign.endDate) {
+    return {
+      ...campaign,
+      status: 'active' as const
+    };
+  }
+  
   const daysUntilEnd = getDaysUntilEnd(campaign.endDate);
   
   let status: Campaign['status'];
@@ -225,7 +233,8 @@ export function filterActiveCampaigns(campaigns: Campaign[]): Campaign[] {
     .map(updateCampaignStatus) // 상태 실시간 업데이트
     .filter(campaign => {
       const now = new Date();
-      const isActive = campaign.endDate && campaign.endDate > now;
+      // endDate가 null인 경우(deadline 추출 실패) 활성 상태로 처리
+      const isActive = !campaign.endDate || campaign.endDate > now;
       if (!isActive && process.env.NODE_ENV === 'development') {
         console.warn(`🚨 만료된 캠페인 필터링: ${campaign.title} (마감일: ${campaign.endDate?.toISOString()})`);
       }

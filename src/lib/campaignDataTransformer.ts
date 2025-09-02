@@ -340,21 +340,24 @@ function calculateDates(deadline: Date | null, crawledAt?: Date) {
   if (deadline && !isNaN(deadline.getTime())) {
     actualDeadline = new Date(deadline);
   } else {
-    console.warn('⚠️ deadline이 null 또는 invalid, 기본값 7일 후로 설정');
-    actualDeadline = new Date(baseTime.getTime() + 7 * 24 * 60 * 60 * 1000);
+    // deadline 추출 실패 - 에러 로그로 기록하지만 계속 처리
+    console.error('🚨 [DEADLINE_EXTRACTION_FAILED] deadline 추출 실패 - null로 설정됨');
+    console.error('  - 원본 데이터 확인 및 파싱 로직 점검 필요');
   }
   
-  // 마감일을 해당일 23:59:59로 설정 (더 정확한 마감시간)
-  actualDeadline.setHours(23, 59, 59, 999);
+  // 마감일이 있는 경우에만 시간 설정 (더 정확한 마감시간)
+  if (actualDeadline) {
+    actualDeadline.setHours(23, 59, 59, 999);
+  }
 
   // 시작일은 크롤링 시점 기준으로 과거 1-3일 사이 랜덤
   const startDate = new Date(baseTime.getTime() - (Math.random() * 2 + 1) * 24 * 60 * 60 * 1000);
   
-  // endDate는 actualDeadline과 동일
+  // endDate는 actualDeadline과 동일 (null일 수 있음)
   const endDate = actualDeadline;
 
-  // 날짜 유효성 최종 검증
-  if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+  // 날짜 유효성 최종 검증 (endDate가 null이면 스킵)
+  if (isNaN(startDate.getTime()) || (endDate && isNaN(endDate.getTime()))) {
     console.error('🚨 날짜 계산 실패, 강제 기본값 적용');
     const defaultStart = new Date(baseTime.getTime() - 2 * 24 * 60 * 60 * 1000); // 2일 전
     const defaultEnd = new Date(baseTime.getTime() + 7 * 24 * 60 * 60 * 1000); // 7일 후
@@ -362,19 +365,20 @@ function calculateDates(deadline: Date | null, crawledAt?: Date) {
     return { startDate: defaultStart, endDate: defaultEnd };
   }
 
-  // 시작일이 마감일보다 늦지 않도록 보장
-  if (startDate >= endDate) {
+  // 시작일이 마감일보다 늦지 않도록 보장 (마감일이 있는 경우에만)
+  if (endDate && startDate >= endDate) {
     const correctedStart = new Date(endDate.getTime() - 2 * 24 * 60 * 60 * 1000);
     console.warn('⚠️ 시작일이 마감일보다 늦음, 자동 수정');
     return { startDate: correctedStart, endDate };
   }
 
-  return { startDate, endDate };
+  return { startDate, endDate: actualDeadline };
 }
 
 // 원시 데이터를 Campaign 타입으로 변환
 export function convertRawDataToCampaigns(rawData: RawCampaignData[]): Campaign[] {
-  return rawData.map((raw, index) => {
+  const campaigns = rawData.map((raw, index): Campaign | null => {
+    try {
     const cleanedTitle = cleanTitle(raw.title);
     const brand = extractBrand(raw.title);
     const category = mapToCategory(raw.title, raw.description);
@@ -382,7 +386,19 @@ export function convertRawDataToCampaigns(rawData: RawCampaignData[]): Campaign[
     // 크롤링 시점 (created_at)을 기준으로 고정된 마감일 계산
     const crawledAt = raw.created_at ? new Date(raw.created_at) : new Date();
     const deadline = raw.deadline ? (typeof raw.deadline === 'string' ? new Date(raw.deadline) : raw.deadline) : null;
-    const { startDate, endDate } = calculateDates(deadline, crawledAt);
+    
+    let startDate: Date, endDate: Date | null;
+    try {
+      const result = calculateDates(deadline, crawledAt);
+      startDate = result.startDate;
+      endDate = result.endDate;
+    } catch (error) {
+      console.error(`🚨 calculateDates 에러 (캠페인 ${index}):`, error);
+      // 에러 발생 시 기본값 설정
+      const now = new Date();
+      startDate = new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000); // 2일 전
+      endDate = null; // deadline이 null이면 endDate도 null
+    }
 
     // 위치 정보 추출 및 방문 유형 결정
     const location = extractLocation(raw.title, raw.description);
@@ -434,8 +450,13 @@ export function convertRawDataToCampaigns(rawData: RawCampaignData[]): Campaign[
       location: location,
       startDate: startDate,
       endDate: endDate,
-      // 🚨 개선된 상태 계산: ending-soon 상태도 고려
+      deadline: endDate, // deadline 필드 추가 (endDate와 동일, null일 수 있음)
+      // 🚨 개선된 상태 계산: ending-soon 상태도 고려 (deadline이 null이면 active 상태)
       status: (() => {
+        if (!endDate) {
+          return 'active' as const; // deadline이 없으면 활성 상태로 처리
+        }
+        
         const now = new Date();
         const daysUntilEnd = Math.floor((endDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
         
@@ -455,7 +476,15 @@ export function convertRawDataToCampaigns(rawData: RawCampaignData[]): Campaign[
       maxParticipants: raw.applications_total || Math.floor(Math.random() * 30) + 50,
       imageUrl: raw.thumbnail_image || '/images/default-campaign.jpg'
     };
-  }).filter(campaign => campaign !== null); // null 값 제거
+    
+    } catch (error) {
+      console.error(`❌ 캠페인 ${index + 1} 처리 실패 (${raw.title}):`, error);
+      return null;
+    }
+  });
+  
+  const validCampaigns = campaigns.filter((campaign): campaign is Campaign => campaign !== null); // null 값 제거
+  return validCampaigns;
 }
 
 // 실제 크롤링 데이터 로드 (Supabase API에서)
@@ -491,11 +520,11 @@ export async function loadRealCampaignData(
       return campaign?.id &&
         campaign.title &&
         campaign.createdDate &&
-        campaign.endDate &&
         campaign.startDate &&
         !isNaN(campaign.createdDate.getTime()) &&
-        !isNaN(campaign.endDate.getTime()) &&
-        !isNaN(campaign.startDate.getTime());
+        !isNaN(campaign.startDate.getTime()) &&
+        // deadline이 존재하는 경우에만 유효성 검사
+        (!campaign.deadline || !isNaN(campaign.deadline.getTime()));
     });
 
     // 🎯 중복 제거 최적화: Map 기반 중복 제거
@@ -507,6 +536,8 @@ export async function loadRealCampaignData(
     }
 
     const finalCampaigns = Array.from(uniqueCampaigns.values());
+
+
 
     logger.dev(`⚡ 서버 페이지네이션: ${finalCampaigns.length} 캠페인 로드 (페이지 ${page}/${result.pagination.totalPages})`);
 
